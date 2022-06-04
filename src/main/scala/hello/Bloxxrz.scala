@@ -1,5 +1,6 @@
 package hello
 
+import javafx.scene.input.KeyCode
 import scalafx.application.JFXApp3
 import scalafx.event.ActionEvent
 import scalafx.scene.Scene
@@ -7,74 +8,161 @@ import scalafx.scene.control.Button
 import scalafx.scene.paint._
 import scalafx.Includes._
 import scalafx.beans.property.ObjectProperty
+import scalafx.geometry.{Insets, Pos}
+import scalafx.scene.layout.VBox
 import scalafx.scene.shape.Rectangle
 
+import scala.collection.mutable.ListBuffer
+import scala.io.Source
 
 object Bloxxrz extends JFXApp3 {
 
-  val initialBlox:List[(Double,Double)]=List(
-    (200,200),
-    (200,200)
-  )
+  val step=40
+  val RED = new Color(255,0,0)
+  val BLACK = new Color(0,0,0)
+  val WHITE = new Color(255,255,255)
+  val BLUE = new Color(0, 0, 255)
+  val GREY = new Color(100,100,100)
+  var initialBlox:List[(Double, Double)]=null;
 
-  case class State(blox:List[(Double, Double)], endPos:(Double, Double)){
+  def createRect(xr:Double, yr:Double, color: Color) = new Rectangle{
+    x=xr
+    y=yr
+    width = step
+    height = step
+    fill = color
+  }
+
+  case class GameSettings(src:String){
+    def content:List[String]={
+      val bufferedSource = Source.fromFile(src)
+      val str:List[String] = bufferedSource.getLines.toList
+      bufferedSource.close
+      System.out.println(str)
+      str
+    }
+  }
+
+  def getRectangles(src: List[String]):List[Rectangle]={ // all rectangles, empty space, special blocks, end_point
+    val rec = new ListBuffer[Rectangle]()
+    for ((line:String, i) <- src.zipWithIndex)
+      for ((e,j) <- line.toUpperCase.zipWithIndex) {
+        e.toUpper match {
+          case '–'  => rec += createRect( i*step, j*step , BLACK)
+          case '-' => rec += createRect( i*step, j*step , BLACK)
+          case 'O' => rec += createRect( i*step, j*step , GREY)
+          case 'S' => rec += createRect(i*step, j*step , GREY)
+          case 'T' => rec += createRect( i*step, j*step , RED)
+          case '.' => rec += createRect( i*step, j*step , WHITE)
+        }
+    }
+    rec.toList
+  }
+
+  def getBlocks(src: List[String]):(List[(Double,Double)],(Double,Double),List[(Double,Double)], List[(Double,Double)])={ // init, end, empty space, special blocks, end_point
+    val empty = ListBuffer[(Double,Double)]()
+    val special = ListBuffer[(Double,Double)]()
+    val initialBlox = ListBuffer[(Double,Double)]()
+    var endPos:(Double, Double)=(80,80)
+    for ((line:String, i) <- src.zipWithIndex) {
+    for ((e,j) <- line.toUpperCase.zipWithIndex) {
+        e.toUpper match {
+          case '–' => empty.append((i*step, j*step))
+          case '-' => empty.append((i*step, j*step))
+          case 'S' => initialBlox.append((i*step, j*step)).append((i*step, j*step))
+          case 'T' => endPos = (i*step, j*step)
+          case '.' => special.append((i*step, j*step))
+          case _ => {}
+        }
+    }
+    System.out.println(initialBlox.length)
+    }
+    (initialBlox.toList, endPos, empty.toList,special.toList)
+  }
+
+  case class State(content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
+
     def newState(dir: Int): State={
-      System.out.println(dir)
       val (x1, y1) = blox.head
       val (x2, y2) = blox.tail.head
       val (newx1, newy1, newx2, newy2) = dir match {
-        case 1 if x1==x2 && y1==y2 => (x1, y1-25, x2, y2-50)
-        case 1 if x1!=x2 && y1==y2 => (x1, y1-25, x2, y2-25)
-        case 1 if x1==x2 && y1<y2 => (x1, y1-25, x2, y2-50)
-        case 1 if x1==x2 && y2<y1 => (x1, y1-50, x2, y2-25)
+        case 1 if x1==x2 && y1==y2 => (x1, y1-step, x2, y2-2*step)
+        case 1 if x1!=x2 && y1==y2 => (x1, y1-step, x2, y2-step)
+        case 1 if x1==x2 && y1<y2 => (x1, y1-step, x2, y2-2*step)
+        case 1 if x1==x2 && y2<y1 => (x1, y1-2*step, x2, y2-step)
 
-        case 2 if x1==x2 && y1==y2 => (x1, y1+25, x2, y2+50)
-        case 2 if x1!=x2 && y1==y2 => (x1, y1+25, x2, y2+25)
-        case 2 if x1==x2 && y1<y2 => (x1, y1+50, x2, y2+25)
-        case 2 if x1==x2 && y2<y1 => (x1, y1+25, x2, y2+50)
+        case 2 if x1==x2 && y1==y2 => (x1, y1+step, x2, y2+2*step)
+        case 2 if x1!=x2 && y1==y2 => (x1, y1+step, x2, y2+step)
+        case 2 if x1==x2 && y1<y2 => (x1, y1+2*step, x2, y2+step)
+        case 2 if x1==x2 && y2<y1 => (x1, y1+step, x2, y2+2*step)
 
-        case 3 if x1==x2 && y1==y2 => (x1-25, y1, x2-50, y2)
-        case 3 if x1<x2 && y1==y2 => (x1-25, y1, x2-50, y2)
-        case 3 if x1>x2 && y1==y2 => (x1-50, y1, x2-25, y2)
-        case 3 if x1==x2 && y2!=y1 => (x1-25, y1, x2-25, y2)
+        case 3 if x1==x2 && y1==y2 => (x1-step, y1, x2-2*step, y2)
+        case 3 if x1<x2 && y1==y2 => (x1-step, y1, x2-2*step, y2)
+        case 3 if x1>x2 && y1==y2 => (x1-2*step, y1, x2-step, y2)
+        case 3 if x1==x2 && y2!=y1 => (x1-step, y1, x2-step, y2)
 
-        case 4 if x1==x2 && y1==y2 => (x1+25, y1, x2+50, y2)
-        case 4 if x1<x2 && y1==y2 => (x1+50, y1, x2+25, y2)
-        case 4 if x1>x2 && y1==y2 => (x1+25, y1, x2+50, y2)
-        case 4 if x1==x2 && y2!=y1 => (x1+25, y1, x2+25, y2)
+        case 4 if x1==x2 && y1==y2 => (x1+step, y1, x2+2*step, y2)
+        case 4 if x1<x2 && y1==y2 => (x1+2*step, y1, x2+step, y2)
+        case 4 if x1>x2 && y1==y2 => (x1+step, y1, x2+2*step, y2)
+        case 4 if x1==x2 && y2!=y1 => (x1+step, y1, x2+step, y2)
 
         case _ =>(x1, y1, x2, y2)
       }
 
       val newBlox :List[(Double,Double)]=
         if (newx1 < 0 || newx1 > 600 || newy1 < 0 || newy1 > 600 ||
-          newx2 < 0 || newx2 > 600 || newy2 < 0 || newy2 > 600)
-          initialBlox /// end game
-        else if (newx1==newx2==endPos._1 && newy1==newy2==endPos._2 ){
+          newx2 < 0 || newx2 > 600 || newy2 < 0 || newy2 > 600) {
+          System.out.println("end game")
+          initialBlox
+        } /// end game
+        else if (newx1==newx2 && (newx2==endPos._1) && newy1==newy2 && newy2==endPos._2 ){
+          System.out.println("win")
           initialBlox //win
         }
         else {
            List((newx1, newy1), (newx2, newy2))
         }
-        State(newBlox, endPos)
+      State(content, newBlox, endPos, emptyBloxList, specialBloxList)
     }
 
-    def rectangles: List[Rectangle]= rect(endPos._1, endPos._2, Color.rgb(100, 100, 100)):: blox.map{
-      case(x,y) => rect (x,y, Color.rgb(200, 200, 200))
+    def rectangles: List[Rectangle]= {
+      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, BLUE) }
     }
   }
 
-  def rect(xr:Double, yr:Double, color: Color) = new Rectangle{
-    x=xr;
-    y=yr;
-    width = 25
-    height = 25
-    fill = color
+  def endGame(boolean: Boolean):VBox= {
+    if (boolean)  new VBox {
+      prefWidth = 600
+      prefHeight = 600
+      padding = Insets(50, 70, 70, 50)
+      alignment = Pos.BaselineCenter
+      alignmentInParent = Pos.BaselineCenter
+      children = Seq(new Button{
+        text= "Quit"
+        prefWidth = 200.0
+        prefHeight = 30.0
+      })
+    }
+    else new VBox {
+      prefWidth = 600
+      prefHeight = 600
+      padding = Insets(50, 70, 70, 50)
+      alignment = Pos.BaselineCenter
+      alignmentInParent = Pos.BaselineCenter
+      children = Seq(new Button{
+        text= "Again"
+        prefWidth = 200.0
+        prefHeight = 30.0
+      })
+    }
   }
 
   override def start(): Unit = {
-
-    val state=  ObjectProperty(State(initialBlox, (500,500)))
+    val game_settings=  ObjectProperty(GameSettings("example.txt"))
+    getRectangles(game_settings.value.content)
+    val (blox, end, empty, spec)=getBlocks(game_settings.value.content);
+    initialBlox = blox
+    val state=  ObjectProperty(State(game_settings.value.content,blox, end, empty, spec))
     stage = new JFXApp3.PrimaryStage {
       width = 600
       height = 600
@@ -102,11 +190,17 @@ object Bloxxrz extends JFXApp3 {
         fill = Color.rgb(38, 38, 38)
         content = state.value.rectangles
         var direct = 1;
-        onKeyPressed = key => {key.getText match {
-          case "w" => direct = 1
-          case "s" => direct = 2
-          case "a" => direct = 3
-          case "d" => direct = 4
+        onKeyPressed = key => {
+          key.getCode match {
+          case KeyCode.W => direct = 1
+          case KeyCode.S => direct = 2
+          case KeyCode.A => direct = 3
+          case KeyCode.D => direct = 4
+          case KeyCode.UP => direct = 1
+          case KeyCode.DOWN => direct = 2
+          case KeyCode.LEFT => direct = 3
+          case KeyCode.RIGHT => direct = 4
+          case _ => System.out.println(" WRONG KEY ")
         }
           state.update(state.value.newState(direct))
           content = state.value.rectangles
