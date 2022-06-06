@@ -1,6 +1,7 @@
 package hello
 
 import javafx.scene.input.KeyCode
+import jdk.internal.icu.util.CodePointTrie.ValueWidth
 import scalafx.application.JFXApp3
 import scalafx.event.ActionEvent
 import scalafx.scene.Scene
@@ -9,10 +10,14 @@ import scalafx.scene.paint._
 import scalafx.Includes._
 import scalafx.beans.property.ObjectProperty
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.layout.VBox
+import scalafx.scene.input.MouseEvent
+import scalafx.scene.layout.{HBox, VBox}
 import scalafx.scene.shape.Rectangle
 import scalafx.stage.Stage
 
+import java.io.File
+import java.nio.file.{Files, Paths}
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
@@ -25,6 +30,9 @@ object Bloxxrz extends JFXApp3 {
   val BLUE = new Color(0, 0, 255)
   val GREY = new Color(100,100,100)
   var initialBlox:List[(Double, Double)]=null;
+  var sceneWidth=600
+  var sceneHeight=600
+
 
   def createButton(text_ :String, function: Unit):Button ={
     new Button {
@@ -35,6 +43,24 @@ object Bloxxrz extends JFXApp3 {
         function
       }
     }
+  }
+
+  def createMapButton(width: Double, height:Double, int:Int): Button ={
+    val but= new Button("Level "+int)
+    but.setPrefSize(width,height)
+      but.alignmentInParent =
+      int%4 match {
+        case 1 =>Pos.TopLeft
+        case 2 =>Pos.TopRight
+        case 3 =>Pos.BottomLeft
+        case 0 =>Pos.BottomRight
+      }
+     but.onAction = {
+          System.out.println("action")
+      (e: ActionEvent) => startLevel(stage, int)
+    }
+        but
+
   }
 
   def createRect(xr:Double, yr:Double, color: Color) = new Rectangle{
@@ -169,15 +195,37 @@ object Bloxxrz extends JFXApp3 {
     }
   }
 
-  def startLevel(stage: Stage): Unit ={
-    val game_settings= ObjectProperty(GameSettings("example.txt"))
+  def chooseLevel(stage: Stage)={
+    var stop=4;
+    val vBox=new VBox()
+    var hBox=new HBox()
+    hBox.alignment = Pos.BaselineCenter
+
+    @tailrec
+    def chlvl(int: Int) {
+      if (int<=stop && Files.exists(Paths.get("level"+int+".txt"))) {
+        hBox.getChildren().add(createMapButton(sceneWidth/3, sceneHeight/3,int))
+
+        if(hBox.getChildren().size()==2) {
+          vBox.getChildren().add(hBox)
+          hBox=new HBox()
+        }
+        chlvl(int+1)
+      }
+    }
+    chlvl(1)
+    if (hBox.getChildren().size>0) vBox.getChildren().add(hBox)
+    stage.scene.value.content = vBox
+  }
+
+  def startLevel(stage: Stage, int: Int): Unit ={
+    val game_settings= ObjectProperty(GameSettings("level"+int+".txt"))
     val arena=game_settings.value.content
     getRectangles(arena)
-    val (blox, end, empty, spec)=getBlocks(arena);
+    val (blox, end, empty, spec)=getBlocks(arena)
     initialBlox = blox
     val state=  ObjectProperty(State(arena,blox, end, empty, spec))
     stage.scene.value.content = state.value.rectangles
-    var direct = 1;
     stage.scene.value.onKeyPressed = key => {
 
       state.update(state.value.newState(
@@ -208,7 +256,7 @@ object Bloxxrz extends JFXApp3 {
         text= "Start"
         prefWidth = 200.0
         prefHeight = 30.0
-        onAction = (e: ActionEvent) => startLevel(stage)
+        onAction = (e: ActionEvent) => chooseLevel(stage)//startLevel(stage)
       }
 
       val button_quit= new Button{
