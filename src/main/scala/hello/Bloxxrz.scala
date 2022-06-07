@@ -1,5 +1,6 @@
 package hello
 
+import hello.Bloxxrz.stage
 import javafx.scene.input.KeyCode
 import jdk.internal.icu.util.CodePointTrie.ValueWidth
 import scalafx.application.JFXApp3
@@ -10,12 +11,16 @@ import scalafx.scene.paint._
 import scalafx.Includes._
 import scalafx.beans.property.ObjectProperty
 import scalafx.geometry.{Insets, Pos}
+import scalafx.scene.effect.DropShadow
+import scalafx.scene.image.{Image, ImageView}
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, VBox}
+import scalafx.scene.paint.Color
+import scalafx.scene.paint.Color.{DarkGray, DarkRed, Red, White}
 import scalafx.scene.shape.Rectangle
+import scalafx.scene.text.Text
 import scalafx.stage.Stage
 
-import java.io.File
 import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
@@ -46,7 +51,9 @@ object Bloxxrz extends JFXApp3 {
   }
 
   def createMapButton(width: Double, height:Double, int:Int): Button ={
-    val but= new Button("Level "+int)
+    val but= new Button()
+    but.graphic = new ImageView() {image = new Image("level"+int+".png")}
+    but.text="LEVEL "+ int
     but.setPrefSize(width,height)
       but.alignmentInParent =
       int%4 match {
@@ -71,7 +78,7 @@ object Bloxxrz extends JFXApp3 {
     fill = color
   }
 
-  case class GameSettings(src:String){
+  case class getLinesFromFile(src:String){
     def content:List[String]={
       val bufferedSource = Source.fromFile(src)
       val str:List[String] = bufferedSource.getLines.toList
@@ -117,7 +124,7 @@ object Bloxxrz extends JFXApp3 {
     (initialBlox.toList, endPos, empty.toList,special.toList)
   }
 
-  case class State(content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
+  case class State(stage: Stage,level: Int, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
 
     def newState(dir: Int): State={
       val (x1, y1) = blox.head
@@ -152,46 +159,23 @@ object Bloxxrz extends JFXApp3 {
           (newx1==newx2 && newy1==newy2 && specialBloxList.contains((newx1,newy1))) ||
           emptyBloxList.contains((newx1,newy1)) || emptyBloxList.contains((newx2,newy2))) {
           System.out.println("end game")
-          initialBlox
+          createPauseMenu(stage,level, false)
+          null
         } /// end game
         else if (newx1==newx2 && (newx2==endPos._1) && newy1==newy2 && newy2==endPos._2 ){
           System.out.println("win")
-          initialBlox //win
+          createPauseMenu(stage,level,true)
+          null
         }
         else {
            List((newx1, newy1), (newx2, newy2))
         }
-      State(content, newBlox, endPos, emptyBloxList, specialBloxList)
+      State(stage, level, content, newBlox, endPos, emptyBloxList, specialBloxList)
+
     }
+
     def rectangles: List[Rectangle]= {
       getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, BLUE) }
-    }
-  }
-
-  def endGame(boolean: Boolean):VBox= {
-    if (boolean)  new VBox {
-      prefWidth = 600
-      prefHeight = 600
-      padding = Insets(50, 70, 70, 50)
-      alignment = Pos.BaselineCenter
-      alignmentInParent = Pos.BaselineCenter
-      children = Seq(new Button{
-        text= "Quit"
-        prefWidth = 200.0
-        prefHeight = 30.0
-      })
-    }
-    else new VBox {
-      prefWidth = 600
-      prefHeight = 600
-      padding = Insets(50, 70, 70, 50)
-      alignment = Pos.BaselineCenter
-      alignmentInParent = Pos.BaselineCenter
-      children = Seq(new Button{
-        text= "Again"
-        prefWidth = 200.0
-        prefHeight = 30.0
-      })
     }
   }
 
@@ -219,16 +203,18 @@ object Bloxxrz extends JFXApp3 {
   }
 
   def startLevel(stage: Stage, int: Int): Unit ={
-    val game_settings= ObjectProperty(GameSettings("level"+int+".txt"))
-    val arena=game_settings.value.content
+    val game_settings= getLinesFromFile("level"+int+".txt")
+    val arena=game_settings.content
     getRectangles(arena)
     val (blox, end, empty, spec)=getBlocks(arena)
     initialBlox = blox
-    val state=  ObjectProperty(State(arena,blox, end, empty, spec))
+    val state=  ObjectProperty(State(stage, int, arena,blox, end, empty, spec))
     stage.scene.value.content = state.value.rectangles
     stage.scene.value.onKeyPressed = key => {
-
-      state.update(state.value.newState(
+     if (List(KeyCode.W,KeyCode.S,KeyCode.A,KeyCode.D,KeyCode.UP,KeyCode.DOWN,KeyCode.LEFT,KeyCode.RIGHT).contains(key.getCode) && state.value.blox!=null)
+     {
+      state.update(
+        state.value.newState(
         key.getCode match {
         case KeyCode.W => 1
         case KeyCode.S => 2
@@ -238,91 +224,78 @@ object Bloxxrz extends JFXApp3 {
         case KeyCode.DOWN =>  2
         case KeyCode.LEFT =>  3
         case KeyCode.RIGHT =>  4
-        case _ => System.out.println(" WRONG KEY ")
-          -1
       }))
-      stage.scene.value.content = state.value.rectangles
+     if(state.value.blox!=null)  stage.scene.value.content = state.value.rectangles
     }
+    }
+  }
+
+  def createMenu(stage: Stage, list: List[Button]): VBox={
+    stage.title = "Bloxxrz"
+    val cnt=new VBox{
+      prefWidth = 600
+      prefHeight = 600
+      padding = Insets(50, 70, 70, 50)
+      alignment = Pos.BaselineCenter
+      alignmentInParent= Pos.BaselineCenter
+      children=list
+    }
+    stage.scene = new Scene {
+      fill = Color.rgb(38, 38, 38)
+      content = cnt
+    }
+    cnt
+  }
+  def createButton(_text:String): Button ={
+    new Button{
+      text= _text
+      prefWidth = 200.0
+      prefHeight = 30.0
+    }
+  }
+  def createMainMenu(stage: Stage)={
+    val quit=createButton("QUIT")
+    val start=createButton("START")
+    quit.onAction = (e: ActionEvent) => stage.close()
+    start.onAction = (e: ActionEvent) => chooseLevel(stage)
+    createMenu(stage, List(start,quit))
+  }
+  def createPauseMenu(stage: Stage, level:Int, win: Boolean): Unit ={
+    val again=createButton("AGAIN?")
+    val main=createButton("MAIN MENU")
+    again.onAction = (e:ActionEvent) => {startLevel(stage, level)}
+    main.onAction = (e:ActionEvent) => {createMainMenu(stage)}
+    val cnt:VBox=createMenu(stage, List(again,main))
+    cnt.getChildren.add(0,new Text {
+      text = win match{
+        case true => "YOU WIN"
+        case false => "FAIL"
+      }
+      style = "-fx-font: bold 20pt sans-serif"
+      fill = new LinearGradient(
+        endX = 0,
+        stops = Stops(win match{
+          case true => White
+          case false => Red
+        }, DarkGray)
+      )
+      effect = new DropShadow {
+        color = win match{
+          case true => DarkGray
+          case false => DarkRed
+        }
+        radius = 15
+        spread = 0.25
+      }}
+    )
   }
 
   override def start(): Unit = {
-
     stage = new JFXApp3.PrimaryStage {
       width = 600
       height = 600
-      //    initStyle(StageStyle.Unified)
-
-      val button_start= new Button{
-        text= "Start"
-        prefWidth = 200.0
-        prefHeight = 30.0
-        onAction = (e: ActionEvent) => chooseLevel(stage)//startLevel(stage)
       }
-
-      val button_quit= new Button{
-        text= "Quit"
-        prefWidth = 200.0
-        prefHeight = 30.0
-        onAction = (e: ActionEvent) => stage.close()
-      }
-
-      title = "Bloxxrz"
-      scene = new Scene {
-        fill = Color.rgb(38, 38, 38)
-     /*   content = state.value.rectangles
-        var direct = 1;
-        onKeyPressed = key => {
-          key.getCode match {
-          case KeyCode.W => direct = 1
-          case KeyCode.S => direct = 2
-          case KeyCode.A => direct = 3
-          case KeyCode.D => direct = 4
-          case KeyCode.UP => direct = 1
-          case KeyCode.DOWN => direct = 2
-          case KeyCode.LEFT => direct = 3
-          case KeyCode.RIGHT => direct = 4
-          case _ => System.out.println(" WRONG KEY ")
-        }
-          state.update(state.value.newState(direct))
-          content = state.value.rectangles
-        }*/
-       content = new VBox{
-          prefWidth = 600
-          prefHeight = 600
-          padding = Insets(50, 70, 70, 50)
-          alignment = Pos.BaselineCenter
-          alignmentInParent= Pos.BaselineCenter
-          children=Seq(button_start, button_quit)
-        }
-      /*  val hbox = new HBox {
-          padding = Insets(50, 80, 50, 80)
-          children = Seq(
-            new Text {
-              text = " YOU WIN!"
-              style = "-fx-font: normal bold 100pt sans-serif"
-              fill = new LinearGradient(
-                endX = 0,
-                stops = Stops(Red, DarkRed))
-            },
-            new Text {
-              text = "FAIL!"
-              style = "-fx-font: italic bold 100pt sans-serif"
-              fill = new LinearGradient(
-                endX = 0,
-                stops = Stops(White, DarkGray)
-              )
-              effect = new DropShadow {
-                color = DarkGray
-                radius = 15
-                spread = 0.25
-              }
-            }
-          )
-        } */
-       // val but = new Button("Start");
-
-      //  content=List(but);
-      }
+    createMainMenu(stage)
     }
-  }
+
 }
