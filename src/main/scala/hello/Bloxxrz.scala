@@ -64,7 +64,7 @@ object Bloxxrz extends JFXApp3 {
       }
      but.onAction = {
           System.out.println("action")
-      (e: ActionEvent) => startLevel(stage, int)
+      (e: ActionEvent) => loadLevel(stage, int, false)
     }
         but
 
@@ -78,14 +78,11 @@ object Bloxxrz extends JFXApp3 {
     fill = color
   }
 
-  case class getLinesFromFile(src:String){
-    def content:List[String]={
+  def getLinesFromFile(src:String):List[String] = {
       val bufferedSource = Source.fromFile(src)
       val str:List[String] = bufferedSource.getLines.toList
       bufferedSource.close
-      System.out.println(str)
       str
-    }
   }
 
   def getRectangles(src: List[String]):List[Rectangle]={ // all rectangles, empty space, special blocks, end_point
@@ -93,12 +90,12 @@ object Bloxxrz extends JFXApp3 {
     for ((line:String, i) <- src.zipWithIndex)
       for ((e,j) <- line.toUpperCase.zipWithIndex) {
         e.toUpper match {
-          case '–'  => rec += createRect( i*step, j*step , BLACK)
-          case '-' => rec += createRect( i*step, j*step , BLACK)
-          case 'O' => rec += createRect( i*step, j*step , GREY)
-          case 'S' => rec += createRect(i*step, j*step , GREY)
-          case 'T' => rec += createRect( i*step, j*step , RED)
-          case '.' => rec += createRect( i*step, j*step , LIGHT_GREY)
+          case '–'  => rec += createRect( j*step, i*step , BLACK)
+          case '-' => rec += createRect( j*step, i*step , BLACK)
+          case 'O' => rec += createRect( j*step, i*step , GREY)
+          case 'S' => rec += createRect(j*step, i*step , GREY)
+          case 'T' => rec += createRect( j*step, i*step , RED)
+          case '.' => rec += createRect( j*step, i*step , LIGHT_GREY)
         }
     }
     rec.toList
@@ -112,11 +109,11 @@ object Bloxxrz extends JFXApp3 {
     for ((line:String, i) <- src.zipWithIndex) {
     for ((e,j) <- line.toUpperCase.zipWithIndex) {
         e.toUpper match {
-          case '–' => empty.append((i*step, j*step))
-          case '-' => empty.append((i*step, j*step))
-          case 'S' => initialBlox.append((i*step, j*step)).append((i*step, j*step))
-          case 'T' => endPos = (i*step, j*step)
-          case '.' => special.append((i*step, j*step))
+          case '–' => empty.append((j*step, i*step))
+          case '-' => empty.append((j*step, i*step))
+          case 'S' => initialBlox.append((j*step, i*step)).append((j*step, i*step))
+          case 'T' => endPos = (j*step, i*step)
+          case '.' => special.append((j*step, i*step))
           case _ => {}
         }
     }
@@ -202,14 +199,36 @@ object Bloxxrz extends JFXApp3 {
     stage.scene.value.content = vBox
   }
 
-  def startLevel(stage: Stage, int: Int): Unit ={
-    val game_settings= getLinesFromFile("level"+int+".txt")
-    val arena=game_settings.content
+  def playFromFile(stage:Stage, level:Int, state: ObjectProperty[State]): Unit ={
+      val sequence=getLinesFromFile("level"+level+"directions.txt")
+    for (line:String <- sequence)
+      {
+        if(state.value.blox!=null)
+        state.update(
+          state.value.newState(
+            line.toUpperCase() match {
+              case "U" => 1
+              case "D" => 2
+              case "L" => 3
+              case "R" => 4
+            }))
+        if(state.value.blox!=null)  stage.scene.value.content = state.value.rectangles
+      }
+     startLevel(stage, level, state)
+  }
+
+  def loadLevel(stage: Stage, level: Int, fromFile:Boolean): Unit ={
+    val arena=getLinesFromFile("level"+level+".txt")
     getRectangles(arena)
     val (blox, end, empty, spec)=getBlocks(arena)
     initialBlox = blox
-    val state=  ObjectProperty(State(stage, int, arena,blox, end, empty, spec))
+    val state=  ObjectProperty(State(stage, level, arena,blox, end, empty, spec))
     stage.scene.value.content = state.value.rectangles
+    if (fromFile) playFromFile(stage, level, state)
+    else startLevel(stage, level, state)
+  }
+
+  def startLevel(stage: Stage, level: Int, state:ObjectProperty[State]): Unit ={
     stage.scene.value.onKeyPressed = key => {
      if (List(KeyCode.W,KeyCode.S,KeyCode.A,KeyCode.D,KeyCode.UP,KeyCode.DOWN,KeyCode.LEFT,KeyCode.RIGHT).contains(key.getCode) && state.value.blox!=null)
      {
@@ -229,6 +248,8 @@ object Bloxxrz extends JFXApp3 {
     }
     }
   }
+
+
 
   def createMenu(stage: Stage, list: List[Button]): VBox={
     stage.title = "Bloxxrz"
@@ -262,10 +283,12 @@ object Bloxxrz extends JFXApp3 {
   }
   def createPauseMenu(stage: Stage, level:Int, win: Boolean): Unit ={
     val again=createButton("AGAIN?")
+    val sequence=createButton("PLAY FROM FILE")
     val main=createButton("MAIN MENU")
-    again.onAction = (e:ActionEvent) => {startLevel(stage, level)}
+    sequence.onAction = (e:ActionEvent) => {loadLevel(stage, level,true)}
+    again.onAction = (e:ActionEvent) => {loadLevel(stage, level,true)}
     main.onAction = (e:ActionEvent) => {createMainMenu(stage)}
-    val cnt:VBox=createMenu(stage, List(again,main))
+    val cnt:VBox=createMenu(stage, List(again,sequence,main))
     cnt.getChildren.add(0,new Text {
       text = win match{
         case true => "YOU WIN"
