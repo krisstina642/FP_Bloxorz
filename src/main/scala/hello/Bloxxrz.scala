@@ -19,7 +19,8 @@ import scalafx.scene.paint.Color
 import scalafx.scene.paint.Color.{DarkGray, DarkRed, Red, White}
 import scalafx.scene.shape.Rectangle
 import scalafx.scene.text.Text
-import scalafx.stage.Stage
+import scalafx.stage.FileChooser.ExtensionFilter
+import scalafx.stage.{FileChooser, Stage}
 
 import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
@@ -200,7 +201,10 @@ object Bloxxrz extends JFXApp3 {
   }
 
   def playFromFile(stage:Stage, level:Int, state: ObjectProperty[State]): Unit ={
-      val sequence=getLinesFromFile("level"+level+"directions.txt")
+    val fileChooser: FileChooser = new FileChooser
+    fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
+    val selectedFile= fileChooser.showOpenDialog(stage)
+      val sequence=getLinesFromFile(selectedFile.getAbsolutePath)
     for (line:String <- sequence)
       {
         if(state.value.blox!=null)
