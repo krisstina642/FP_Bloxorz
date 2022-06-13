@@ -1,8 +1,7 @@
 package hello
 
-import hello.Bloxxrz.stage
+
 import javafx.scene.input.KeyCode
-import jdk.internal.icu.util.CodePointTrie.ValueWidth
 import scalafx.application.JFXApp3
 import scalafx.event.ActionEvent
 import scalafx.scene.Scene
@@ -13,7 +12,6 @@ import scalafx.beans.property.ObjectProperty
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.effect.DropShadow
 import scalafx.scene.image.{Image, ImageView}
-import scalafx.scene.input.MouseEvent
 import scalafx.scene.layout.{HBox, VBox}
 import scalafx.scene.paint.Color
 import scalafx.scene.paint.Color.{DarkGray, DarkRed, Red, White}
@@ -28,7 +26,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
-object Bloxxrz extends JFXApp3 {
+object Bloxorz extends JFXApp3 {
 
   val step=40
   val RED = new Color(255,0,0)
@@ -201,74 +199,45 @@ object Bloxxrz extends JFXApp3 {
     stage.scene.value.content = vBox
   }
 
-  def playFromFile(stage:Stage, level:Int, state: ObjectProperty[State]): Unit ={
-    val fileChooser: FileChooser = new FileChooser
-    fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
-    val selectedFile = fileChooser.showOpenDialog(stage)
-    if (selectedFile != null) {
-      val sequence = getLinesFromFile(selectedFile.getAbsolutePath)
-      for (line: String <- sequence) {
-        if (state.value.blox != null)
-          state.update(
-            state.value.newState(
-              line.toUpperCase() match {
-                case "U" => 1
-                case "D" => 2
-                case "L" => 3
-                case "R" => 4
-                case _ => startLevel(stage, level, state)
-                  0
-              }))
-        if (state.value.blox != null) stage.scene.value.content = state.value.rectangles
-      }
-    }
-    startLevel(stage, level, state)
-  }
-
   def findSolution(stage:Stage, level:Int)={
     val fileChooser: FileChooser = new FileChooser
     fileChooser.setTitle("Save As")
     fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
     val saveFile = fileChooser.showSaveDialog(stage)
     if (saveFile!=null) {
+
       val writer = new PrintWriter(new File(saveFile.getAbsolutePath))
       val arena = getLinesFromFile("level" + level + ".txt")
       val (blox, end, empty, spec) = getBlocks(arena) ////////////
-      solveLevel(0, writer, List((end._1, end._2, end._1, end._2)), List(0), blox.head, empty, spec)
-    }
-  }
 
-  @tailrec
-  def solveLevel( current:Int, writer: PrintWriter,state:List[(Double,Double,Double,Double)], accFrom:List[Int], end :(Double, Double), empty: List[(Double, Double)], spec: List[(Double, Double)]): Unit ={
-    if (state.length<current+1) {
-      System.err.println("can't be solved")
-      writer.write("Can't be solved")
-      writer.close()
-    }
-    else if (state(current)._1==state(current)._3 && state(current)._2==state(current)._4 && state(current)._1==end._1 && state(current)._2==end._2) {
-      System.out.println("solved")
-      var curr = current
-      while (curr != 0) {
-        if (state(accFrom(curr))._1 < state(curr)._1) writer.write("l\n")
-        else if (state(accFrom(curr))._1 > state(curr)._1) writer.write("r\n")
-        else if (state(accFrom(curr))._2 < state(curr)._2) writer.write("u\n")
-        else if (state(accFrom(curr))._2 > state(curr)._2) writer.write("d\n")
-        curr = accFrom(curr)
+      @tailrec
+      def solveLevel( current:Int,state:List[(Double,Double,Double,Double)], accFrom:List[Int], end :(Double, Double)): Unit ={
+        if (state.length<current+1) {
+          //System.err.println("No Solutions")
+          writer.write("No Solutions")
+          writer.close()
+        }
+        else if (state(current)._1==state(current)._3 && state(current)._2==state(current)._4 && state(current)._1==end._1 && state(current)._2==end._2) {
+          //System.out.println("solved")
+          var curr = current
+          while (curr != 0) {
+            if (state(accFrom(curr))._1 < state(curr)._1) writer.write("l\n")
+            else if (state(accFrom(curr))._1 > state(curr)._1) writer.write("r\n")
+            else if (state(accFrom(curr))._2 < state(curr)._2) writer.write("u\n")
+            else if (state(accFrom(curr))._2 > state(curr)._2) writer.write("d\n")
+            curr = accFrom(curr)
+          }
+          writer.close()
+        }
+        else {
+          val nxt=nextPosition(state(current),empty, spec)
+          solveLevel(current+1, state ::: nxt, accFrom ::: List.fill(nxt.length)(current), end)
+        }
       }
-      writer.close()
-    }
-    else if (spec.contains((state(current)._1,state(current)._2)) && (state(current)._1,state(current)._2)==(state(current)._3,state(current)._4)){
-      System.out.println("spec")
-      solveLevel(current+1, writer, state, accFrom, end, empty, spec)
-    }
-    else {
-      System.out.println("else "+state(current) )
-      val nxt=nextPosition(state(current),empty, spec)
-      System.out.println("else "+state.length )
-      solveLevel(current+1, writer, state ::: nxt, accFrom ::: List.fill(nxt.length)(current), end, empty, spec)
+
+      solveLevel(0, List((end._1, end._2, end._1, end._2)), List(0), blox.head)
     }
   }
-
   def nextPosition(state:(Double, Double, Double, Double), empty: List[(Double, Double)], spec: List[(Double, Double)]):List[(Double,Double,Double,Double)] ={
     val (x1, y1) = (state._1, state._2)
     val (x2, y2) = (state._3, state._4)
@@ -295,8 +264,12 @@ object Bloxxrz extends JFXApp3 {
         case 4 if x1 > x2 && y1 == y2 => (x1 + step, y1, x2 + 2 * step, y2)
         case 4 if x1 == x2 && y2 != y1 => (x1 + step, y1, x2 + step, y2)
       }
-      if (newx1>=0 && newx2>=0 && newy1>=0 && newy2>=0 && !(empty.contains((state._1,state._2)) || empty.contains((state._3,state._4))) &&
-        !(spec.contains((state._1,state._2)) && (state._1,state._2)==(state._3,state._4)))  acc += ((newx1, newy1, newx2, newy2))
+
+      if (newx1>=0 && newx2>=0 && newy1>=0 && newy2>=0 && !(empty.contains((newx1,newy1)) || empty.contains((newx2,newy2))) &&
+        !(spec.contains((newx1,newy1)) && (newx1,newy1)==(newx2,newy2))){
+
+        acc += ((newx1, newy1, newx2, newy2))
+      }
     }
     System.out.println("lenght before "+acc.length)
     acc.toList
@@ -304,16 +277,39 @@ object Bloxxrz extends JFXApp3 {
 
   def loadLevel(stage: Stage, level: Int, fromFile:Boolean): Unit ={
     val arena=getLinesFromFile("level"+level+".txt")
-    getRectangles(arena)
     val (blox, end, empty, spec)=getBlocks(arena)
     initialBlox = blox
-    val state=  ObjectProperty(State(stage, level, arena,blox, end, empty, spec))
+    val state = ObjectProperty(State(stage, level, arena, blox, end, empty, spec))
     stage.scene.value.content = state.value.rectangles
-    if (fromFile) playFromFile(stage, level, state)
-    else startLevel(stage, level, state)
+
+    def playFromFile(): Unit ={
+      val fileChooser: FileChooser = new FileChooser
+      fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
+      val selectedFile = fileChooser.showOpenDialog(stage)
+      if (selectedFile != null) {
+        val sequence = getLinesFromFile(selectedFile.getAbsolutePath)
+        for (line: String <- sequence) {
+          if (state.value.blox != null)
+            state.update(
+              state.value.newState(
+                line.toUpperCase() match {
+                  case "U" => 1
+                  case "D" => 2
+                  case "L" => 3
+                  case "R" => 4
+                  case _ => startLevel(stage, state)
+                    0
+                }))
+          if (state.value.blox != null) stage.scene.value.content = state.value.rectangles
+        }
+      }
+    }
+
+    if (fromFile) playFromFile()
+    startLevel(stage, state)
   }
 
-  def startLevel(stage: Stage, level: Int, state:ObjectProperty[State]): Unit ={
+  def startLevel(stage: Stage, state:ObjectProperty[State]): Unit ={
     stage.scene.value.onKeyPressed = key => {
      if (List(KeyCode.W,KeyCode.S,KeyCode.A,KeyCode.D,KeyCode.UP,KeyCode.DOWN,KeyCode.LEFT,KeyCode.RIGHT).contains(key.getCode) && state.value.blox!=null)
      {
@@ -335,8 +331,9 @@ object Bloxxrz extends JFXApp3 {
   }
 
   def createMenu(stage: Stage, list: List[Button]): VBox={
-    stage.title = "Bloxxrz"
+    stage.title = "Bloxorz"
     val cnt=new VBox{
+      spacing = 5
       prefWidth = 600
       prefHeight = 600
       padding = Insets(50, 70, 70, 50)
@@ -362,7 +359,20 @@ object Bloxxrz extends JFXApp3 {
     val start=createButton("START")
     quit.onAction = (e: ActionEvent) => stage.close()
     start.onAction = (e: ActionEvent) => chooseLevel(stage)
-    createMenu(stage, List(start,quit))
+    val cnt:VBox=createMenu(stage, List(start,quit))
+    cnt.getChildren.add(0,new Text {
+      text = "BLOXORZ"
+      margin = Insets(50, 50, 50, 50)
+      style = "-fx-font: bold 35pt sans-serif"
+      fill = new LinearGradient(
+        endX = 0,
+        stops = Stops(Red, DarkGray))
+      effect = new DropShadow {
+        color = DarkRed
+        radius = 15
+        spread = 0.25
+        }
+    })
   }
 
   def createPauseMenu(stage: Stage, level:Int, win: Boolean): Unit ={
@@ -380,6 +390,7 @@ object Bloxxrz extends JFXApp3 {
         case true => "YOU WIN"
         case false => "FAIL"
       }
+      margin = Insets(50, 50, 50, 50)
       style = "-fx-font: bold 20pt sans-serif"
       fill = new LinearGradient(
         endX = 0,
