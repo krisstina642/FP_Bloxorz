@@ -227,11 +227,15 @@ object Bloxxrz extends JFXApp3 {
 
   def findSolution(stage:Stage, level:Int)={
     val fileChooser: FileChooser = new FileChooser
-    val writer = new PrintWriter(new File("solution"+level+".txt" ))
-    val selectedFile = fileChooser.showSaveDialog(stage)
-    val arena=getLinesFromFile("level"+level+".txt")
-    val (blox, end, empty, spec)=getBlocks(arena) ////////////
-    solveLevel(0,writer,List((end._1,end._2,end._1,end._2)),List(0),blox.head,empty,spec)
+    fileChooser.setTitle("Save As")
+    fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
+    val saveFile = fileChooser.showSaveDialog(stage)
+    if (saveFile!=null) {
+      val writer = new PrintWriter(new File(saveFile.getAbsolutePath))
+      val arena = getLinesFromFile("level" + level + ".txt")
+      val (blox, end, empty, spec) = getBlocks(arena) ////////////
+      solveLevel(0, writer, List((end._1, end._2, end._1, end._2)), List(0), blox.head, empty, spec)
+    }
   }
 
   @tailrec
@@ -329,7 +333,7 @@ object Bloxxrz extends JFXApp3 {
     }
     }
   }
-  
+
   def createMenu(stage: Stage, list: List[Button]): VBox={
     stage.title = "Bloxxrz"
     val cnt=new VBox{
