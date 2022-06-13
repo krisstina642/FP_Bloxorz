@@ -22,6 +22,7 @@ import scalafx.scene.text.Text
 import scalafx.stage.FileChooser.ExtensionFilter
 import scalafx.stage.{FileChooser, Stage}
 
+import java.io.{File, PrintWriter}
 import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
@@ -203,22 +204,98 @@ object Bloxxrz extends JFXApp3 {
   def playFromFile(stage:Stage, level:Int, state: ObjectProperty[State]): Unit ={
     val fileChooser: FileChooser = new FileChooser
     fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
-    val selectedFile= fileChooser.showOpenDialog(stage)
-      val sequence=getLinesFromFile(selectedFile.getAbsolutePath)
-    for (line:String <- sequence)
-      {
-        if(state.value.blox!=null)
-        state.update(
-          state.value.newState(
-            line.toUpperCase() match {
-              case "U" => 1
-              case "D" => 2
-              case "L" => 3
-              case "R" => 4
-            }))
-        if(state.value.blox!=null)  stage.scene.value.content = state.value.rectangles
+    val selectedFile = fileChooser.showOpenDialog(stage)
+    if (selectedFile != null) {
+      val sequence = getLinesFromFile(selectedFile.getAbsolutePath)
+      for (line: String <- sequence) {
+        if (state.value.blox != null)
+          state.update(
+            state.value.newState(
+              line.toUpperCase() match {
+                case "U" => 1
+                case "D" => 2
+                case "L" => 3
+                case "R" => 4
+                case _ => startLevel(stage, level, state)
+                  0
+              }))
+        if (state.value.blox != null) stage.scene.value.content = state.value.rectangles
       }
-     startLevel(stage, level, state)
+    }
+    startLevel(stage, level, state)
+  }
+
+  def findSolution(stage:Stage, level:Int)={
+    val fileChooser: FileChooser = new FileChooser
+    val writer = new PrintWriter(new File("solution"+level+".txt" ))
+    val selectedFile = fileChooser.showSaveDialog(stage)
+    val arena=getLinesFromFile("level"+level+".txt")
+    val (blox, end, empty, spec)=getBlocks(arena) ////////////
+    solveLevel(0,writer,List((end._1,end._2,end._1,end._2)),List(0),blox.head,empty,spec)
+  }
+
+  @tailrec
+  def solveLevel( current:Int, writer: PrintWriter,state:List[(Double,Double,Double,Double)], accFrom:List[Int], end :(Double, Double), empty: List[(Double, Double)], spec: List[(Double, Double)]): Unit ={
+    if (state.length<current+1) {
+      System.err.println("can't be solved")
+      writer.write("Can't be solved")
+      writer.close()
+    }
+    else if (state(current)._1==state(current)._3 && state(current)._2==state(current)._4 && state(current)._1==end._1 && state(current)._2==end._2) {
+      System.out.println("solved")
+      var curr = current
+      while (curr != 0) {
+        if (state(accFrom(curr))._1 < state(curr)._1) writer.write("l\n")
+        else if (state(accFrom(curr))._1 > state(curr)._1) writer.write("r\n")
+        else if (state(accFrom(curr))._2 < state(curr)._2) writer.write("u\n")
+        else if (state(accFrom(curr))._2 > state(curr)._2) writer.write("d\n")
+        curr = accFrom(curr)
+      }
+      writer.close()
+    }
+    else if (spec.contains((state(current)._1,state(current)._2)) && (state(current)._1,state(current)._2)==(state(current)._3,state(current)._4)){
+      System.out.println("spec")
+      solveLevel(current+1, writer, state, accFrom, end, empty, spec)
+    }
+    else {
+      System.out.println("else "+state(current) )
+      val nxt=nextPosition(state(current),empty, spec)
+      System.out.println("else "+state.length )
+      solveLevel(current+1, writer, state ::: nxt, accFrom ::: List.fill(nxt.length)(current), end, empty, spec)
+    }
+  }
+
+  def nextPosition(state:(Double, Double, Double, Double), empty: List[(Double, Double)], spec: List[(Double, Double)]):List[(Double,Double,Double,Double)] ={
+    val (x1, y1) = (state._1, state._2)
+    val (x2, y2) = (state._3, state._4)
+    val acc:ListBuffer[(Double,Double,Double, Double)]= ListBuffer[(Double,Double,Double, Double)]()
+    for(dir<-1 to 4) {
+      val (newx1, newy1, newx2, newy2) = dir match {
+        case 1 if x1 == x2 && y1 == y2 => (x1, y1 - step, x2, y2 - 2 * step)
+        case 1 if x1 != x2 && y1 == y2 => (x1, y1 - step, x2, y2 - step)
+        case 1 if x1 == x2 && y1 < y2 => (x1, y1 - step, x2, y2 - 2 * step)
+        case 1 if x1 == x2 && y2 < y1 => (x1, y1 - 2 * step, x2, y2 - step)
+
+        case 2 if x1 == x2 && y1 == y2 => (x1, y1 + step, x2, y2 + 2 * step)
+        case 2 if x1 != x2 && y1 == y2 => (x1, y1 + step, x2, y2 + step)
+        case 2 if x1 == x2 && y1 < y2 => (x1, y1 + 2 * step, x2, y2 + step)
+        case 2 if x1 == x2 && y2 < y1 => (x1, y1 + step, x2, y2 + 2 * step)
+
+        case 3 if x1 == x2 && y1 == y2 => (x1 - step, y1, x2 - 2 * step, y2)
+        case 3 if x1 < x2 && y1 == y2 => (x1 - step, y1, x2 - 2 * step, y2)
+        case 3 if x1 > x2 && y1 == y2 => (x1 - 2 * step, y1, x2 - step, y2)
+        case 3 if x1 == x2 && y2 != y1 => (x1 - step, y1, x2 - step, y2)
+
+        case 4 if x1 == x2 && y1 == y2 => (x1 + step, y1, x2 + 2 * step, y2)
+        case 4 if x1 < x2 && y1 == y2 => (x1 + 2 * step, y1, x2 + step, y2)
+        case 4 if x1 > x2 && y1 == y2 => (x1 + step, y1, x2 + 2 * step, y2)
+        case 4 if x1 == x2 && y2 != y1 => (x1 + step, y1, x2 + step, y2)
+      }
+      if (newx1>=0 && newx2>=0 && newy1>=0 && newy2>=0 && !(empty.contains((state._1,state._2)) || empty.contains((state._3,state._4))) &&
+        !(spec.contains((state._1,state._2)) && (state._1,state._2)==(state._3,state._4)))  acc += ((newx1, newy1, newx2, newy2))
+    }
+    System.out.println("lenght before "+acc.length)
+    acc.toList
   }
 
   def loadLevel(stage: Stage, level: Int, fromFile:Boolean): Unit ={
@@ -252,9 +329,7 @@ object Bloxxrz extends JFXApp3 {
     }
     }
   }
-
-
-
+  
   def createMenu(stage: Stage, list: List[Button]): VBox={
     stage.title = "Bloxxrz"
     val cnt=new VBox{
@@ -285,14 +360,17 @@ object Bloxxrz extends JFXApp3 {
     start.onAction = (e: ActionEvent) => chooseLevel(stage)
     createMenu(stage, List(start,quit))
   }
+
   def createPauseMenu(stage: Stage, level:Int, win: Boolean): Unit ={
     val again=createButton("AGAIN?")
+    val solution=createButton("SOLUTION")
     val sequence=createButton("PLAY FROM FILE")
     val main=createButton("MAIN MENU")
+    solution.onAction = (e:ActionEvent) => {findSolution(stage, level)}
     sequence.onAction = (e:ActionEvent) => {loadLevel(stage, level,true)}
-    again.onAction = (e:ActionEvent) => {loadLevel(stage, level,true)}
+    again.onAction = (e:ActionEvent) => {loadLevel(stage, level,false)}
     main.onAction = (e:ActionEvent) => {createMainMenu(stage)}
-    val cnt:VBox=createMenu(stage, List(again,sequence,main))
+    val cnt:VBox=createMenu(stage, List(again,solution,sequence,main))
     cnt.getChildren.add(0,new Text {
       text = win match{
         case true => "YOU WIN"
