@@ -12,6 +12,7 @@ import scalafx.beans.property.ObjectProperty
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.effect.DropShadow
 import scalafx.scene.image.{Image, ImageView}
+import scalafx.scene.layout.VBox.getMargin
 import scalafx.scene.layout.{HBox, VBox}
 import scalafx.scene.paint.Color
 import scalafx.scene.paint.Color.{DarkGray, DarkRed, Red, White}
@@ -28,15 +29,10 @@ import scala.io.Source
 
 object Bloxorz extends JFXApp3 {
 
-  val step=40
-  val RED = new Color(255,0,0)
-  val BLACK = new Color(0,0,0)
-  val LIGHT_GREY = new Color(150,150,150)
-  val BLUE = new Color(0, 0, 255)
-  val GREY = new Color(100,100,100)
-  var initialBlox:List[(Double, Double)]=null;
-  var sceneWidth=600
-  var sceneHeight=600
+  val step = 40
+  var initialBlox:List[(Double, Double)] = null;
+  var sceneWidth = 600
+  var sceneHeight = 600
 
 
   def createButton(text_ :String, function: Unit):Button ={
@@ -49,11 +45,9 @@ object Bloxorz extends JFXApp3 {
       }
     }
   }
-
   def createMapButton(width: Double, height:Double, int:Int): Button ={
     val but= new Button()
     but.graphic = new ImageView() {image = new Image("level"+int+".png")}
-    but.text="LEVEL "+ int
     but.setPrefSize(width,height)
       but.alignmentInParent =
       int%4 match {
@@ -67,9 +61,7 @@ object Bloxorz extends JFXApp3 {
       (e: ActionEvent) => loadLevel(stage, int, false)
     }
         but
-
   }
-
   def createRect(xr:Double, yr:Double, color: Color) = new Rectangle{
     x=xr
     y=yr
@@ -84,23 +76,21 @@ object Bloxorz extends JFXApp3 {
       bufferedSource.close
       str
   }
-
   def getRectangles(src: List[String]):List[Rectangle]={ // all rectangles, empty space, special blocks, end_point
     val rec = new ListBuffer[Rectangle]()
     for ((line:String, i) <- src.zipWithIndex)
       for ((e,j) <- line.toUpperCase.zipWithIndex) {
         e.toUpper match {
-          case '–'  => rec += createRect( j*step, i*step , BLACK)
-          case '-' => rec += createRect( j*step, i*step , BLACK)
-          case 'O' => rec += createRect( j*step, i*step , GREY)
-          case 'S' => rec += createRect(j*step, i*step , GREY)
-          case 'T' => rec += createRect( j*step, i*step , RED)
-          case '.' => rec += createRect( j*step, i*step , LIGHT_GREY)
+          case '–'  => rec += createRect( j*step, i*step , Color.Black)
+          case '-' => rec += createRect( j*step, i*step , Color.Black)
+          case 'O' => rec += createRect( j*step, i*step , Color.Gray)
+          case 'S' => rec += createRect(j*step, i*step , Color.Gray)
+          case 'T' => rec += createRect( j*step, i*step , Color.Red)
+          case '.' => rec += createRect( j*step, i*step , Color.LightGray)
         }
     }
     rec.toList
   }
-
   def getBlocks(src: List[String]):(List[(Double,Double)],(Double,Double),List[(Double,Double)], List[(Double,Double)])={ // init, end, empty space, special blocks, end_point
     val empty = ListBuffer[(Double,Double)]()
     val special = ListBuffer[(Double,Double)]()
@@ -123,32 +113,9 @@ object Bloxorz extends JFXApp3 {
 
   case class State(stage: Stage,level: Int, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
 
+
     def newState(dir: Int): State={
-      val (x1, y1) = blox.head
-      val (x2, y2) = blox.tail.head
-      val (newx1, newy1, newx2, newy2) = dir match {
-        case 1 if x1==x2 && y1==y2 => (x1, y1-step, x2, y2-2*step)
-        case 1 if x1!=x2 && y1==y2 => (x1, y1-step, x2, y2-step)
-        case 1 if x1==x2 && y1<y2 => (x1, y1-step, x2, y2-2*step)
-        case 1 if x1==x2 && y2<y1 => (x1, y1-2*step, x2, y2-step)
-
-        case 2 if x1==x2 && y1==y2 => (x1, y1+step, x2, y2+2*step)
-        case 2 if x1!=x2 && y1==y2 => (x1, y1+step, x2, y2+step)
-        case 2 if x1==x2 && y1<y2 => (x1, y1+2*step, x2, y2+step)
-        case 2 if x1==x2 && y2<y1 => (x1, y1+step, x2, y2+2*step)
-
-        case 3 if x1==x2 && y1==y2 => (x1-step, y1, x2-2*step, y2)
-        case 3 if x1<x2 && y1==y2 => (x1-step, y1, x2-2*step, y2)
-        case 3 if x1>x2 && y1==y2 => (x1-2*step, y1, x2-step, y2)
-        case 3 if x1==x2 && y2!=y1 => (x1-step, y1, x2-step, y2)
-
-        case 4 if x1==x2 && y1==y2 => (x1+step, y1, x2+2*step, y2)
-        case 4 if x1<x2 && y1==y2 => (x1+2*step, y1, x2+step, y2)
-        case 4 if x1>x2 && y1==y2 => (x1+step, y1, x2+2*step, y2)
-        case 4 if x1==x2 && y2!=y1 => (x1+step, y1, x2+step, y2)
-
-        case _ =>(x1, y1, x2, y2)
-      }
+      val (newx1, newy1, newx2, newy2) = calculatePosition(blox.head._1,blox.head._2,blox.tail.head._1,blox.tail.head._2, dir)
 
       val newBlox :List[(Double,Double)]=
         if (newx1 < 0 || newx1 >= 600 || newy1 < 0 || newy1 >= 600 ||
@@ -170,16 +137,16 @@ object Bloxorz extends JFXApp3 {
       State(stage, level, content, newBlox, endPos, emptyBloxList, specialBloxList)
 
     }
-
     def rectangles: List[Rectangle]= {
-      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, BLUE) }
+      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, Color.Blue) }
     }
   }
 
   def chooseLevel(stage: Stage)={
-    var stop=4;
-    val vBox=new VBox()
-    var hBox=new HBox()
+    val stop=4;
+    val vBox=new VBox(20)
+    var hBox=new HBox(20)
+
     hBox.alignment = Pos.BaselineCenter
 
     @tailrec
@@ -198,7 +165,6 @@ object Bloxorz extends JFXApp3 {
     if (hBox.getChildren().size>0) vBox.getChildren().add(hBox)
     stage.scene.value.content = vBox
   }
-
   def findSolution(stage:Stage, level:Int)={
     val fileChooser: FileChooser = new FileChooser
     fileChooser.setTitle("Save As")
@@ -210,8 +176,33 @@ object Bloxorz extends JFXApp3 {
       val arena = getLinesFromFile("level" + level + ".txt")
       val (blox, end, empty, spec) = getBlocks(arena) ////////////
 
+      def nextPosition(state:(Double, Double, Double, Double)):List[(Double,Double,Double,Double)] ={
+
+        val acc:ListBuffer[(Double,Double,Double, Double)]= ListBuffer[(Double,Double,Double, Double)]()
+        for(dir<-1 to 4) {
+          val (newx1, newy1, newx2, newy2) = calculatePosition(state._1, state._2,state._3, state._4, dir)
+          if (newx1>=0 && newx2>=0 && newy1>=0 && newy2>=0 && !(empty.contains((newx1,newy1)) || empty.contains((newx2,newy2))) &&
+            !(spec.contains((newx1,newy1)) && (newx1,newy1)==(newx2,newy2))){
+            acc += ((newx1, newy1, newx2, newy2))
+          }
+        }
+        acc.toList
+      }
+
       @tailrec
-      def solveLevel( current:Int,state:List[(Double,Double,Double,Double)], accFrom:List[Int], end :(Double, Double)): Unit ={
+      def writeToFile(current:Int, state:List[(Double,Double,Double,Double)], accFrom:List[Int]):Unit={
+        if(current==0) writer.close()
+        else{
+          if (state(accFrom(current))._1 < state(current)._1) writer.write("l\n")
+          else if (state(accFrom(current))._1 > state(current)._1) writer.write("r\n")
+          else if (state(accFrom(current))._2 < state(current)._2) writer.write("u\n")
+          else if (state(accFrom(current))._2 > state(current)._2) writer.write("d\n")
+          writeToFile(accFrom(current), state, accFrom)
+        }
+      }
+
+      @tailrec
+      def solveLevel( current:Int, state:List[(Double,Double,Double,Double)], accFrom:List[Int], end :(Double, Double)): Unit ={
         if (state.length<current+1) {
           //System.err.println("No Solutions")
           writer.write("No Solutions")
@@ -219,61 +210,42 @@ object Bloxorz extends JFXApp3 {
         }
         else if (state(current)._1==state(current)._3 && state(current)._2==state(current)._4 && state(current)._1==end._1 && state(current)._2==end._2) {
           //System.out.println("solved")
-          var curr = current
-          while (curr != 0) {
-            if (state(accFrom(curr))._1 < state(curr)._1) writer.write("l\n")
-            else if (state(accFrom(curr))._1 > state(curr)._1) writer.write("r\n")
-            else if (state(accFrom(curr))._2 < state(curr)._2) writer.write("u\n")
-            else if (state(accFrom(curr))._2 > state(curr)._2) writer.write("d\n")
-            curr = accFrom(curr)
-          }
-          writer.close()
+          writeToFile(current, state, accFrom)
         }
         else {
-          val nxt=nextPosition(state(current),empty, spec)
+          val nxt=nextPosition(state(current))
           solveLevel(current+1, state ::: nxt, accFrom ::: List.fill(nxt.length)(current), end)
         }
       }
-
       solveLevel(0, List((end._1, end._2, end._1, end._2)), List(0), blox.head)
     }
   }
-  def nextPosition(state:(Double, Double, Double, Double), empty: List[(Double, Double)], spec: List[(Double, Double)]):List[(Double,Double,Double,Double)] ={
-    val (x1, y1) = (state._1, state._2)
-    val (x2, y2) = (state._3, state._4)
-    val acc:ListBuffer[(Double,Double,Double, Double)]= ListBuffer[(Double,Double,Double, Double)]()
-    for(dir<-1 to 4) {
-      val (newx1, newy1, newx2, newy2) = dir match {
-        case 1 if x1 == x2 && y1 == y2 => (x1, y1 - step, x2, y2 - 2 * step)
-        case 1 if x1 != x2 && y1 == y2 => (x1, y1 - step, x2, y2 - step)
-        case 1 if x1 == x2 && y1 < y2 => (x1, y1 - step, x2, y2 - 2 * step)
-        case 1 if x1 == x2 && y2 < y1 => (x1, y1 - 2 * step, x2, y2 - step)
+  def calculatePosition(x1:Double,y1:Double,x2:Double,y2:Double, direction:Int):(Double, Double, Double, Double)={
+    direction match {
+      case 1 if x1 == x2 && y1 == y2 => (x1, y1 - step, x2, y2 - 2 * step)
+      case 1 if x1 != x2 && y1 == y2 => (x1, y1 - step, x2, y2 - step)
+      case 1 if x1 == x2 && y1 < y2 => (x1, y1 - step, x2, y2 - 2 * step)
+      case 1 if x1 == x2 && y2 < y1 => (x1, y1 - 2 * step, x2, y2 - step)
 
-        case 2 if x1 == x2 && y1 == y2 => (x1, y1 + step, x2, y2 + 2 * step)
-        case 2 if x1 != x2 && y1 == y2 => (x1, y1 + step, x2, y2 + step)
-        case 2 if x1 == x2 && y1 < y2 => (x1, y1 + 2 * step, x2, y2 + step)
-        case 2 if x1 == x2 && y2 < y1 => (x1, y1 + step, x2, y2 + 2 * step)
+      case 2 if x1 == x2 && y1 == y2 => (x1, y1 + step, x2, y2 + 2 * step)
+      case 2 if x1 != x2 && y1 == y2 => (x1, y1 + step, x2, y2 + step)
+      case 2 if x1 == x2 && y1 < y2 => (x1, y1 + 2 * step, x2, y2 + step)
+      case 2 if x1 == x2 && y2 < y1 => (x1, y1 + step, x2, y2 + 2 * step)
 
-        case 3 if x1 == x2 && y1 == y2 => (x1 - step, y1, x2 - 2 * step, y2)
-        case 3 if x1 < x2 && y1 == y2 => (x1 - step, y1, x2 - 2 * step, y2)
-        case 3 if x1 > x2 && y1 == y2 => (x1 - 2 * step, y1, x2 - step, y2)
-        case 3 if x1 == x2 && y2 != y1 => (x1 - step, y1, x2 - step, y2)
+      case 3 if x1 == x2 && y1 == y2 => (x1 - step, y1, x2 - 2 * step, y2)
+      case 3 if x1 < x2 && y1 == y2 => (x1 - step, y1, x2 - 2 * step, y2)
+      case 3 if x1 > x2 && y1 == y2 => (x1 - 2 * step, y1, x2 - step, y2)
+      case 3 if x1 == x2 && y2 != y1 => (x1 - step, y1, x2 - step, y2)
 
-        case 4 if x1 == x2 && y1 == y2 => (x1 + step, y1, x2 + 2 * step, y2)
-        case 4 if x1 < x2 && y1 == y2 => (x1 + 2 * step, y1, x2 + step, y2)
-        case 4 if x1 > x2 && y1 == y2 => (x1 + step, y1, x2 + 2 * step, y2)
-        case 4 if x1 == x2 && y2 != y1 => (x1 + step, y1, x2 + step, y2)
-      }
+      case 4 if x1 == x2 && y1 == y2 => (x1 + step, y1, x2 + 2 * step, y2)
+      case 4 if x1 < x2 && y1 == y2 => (x1 + 2 * step, y1, x2 + step, y2)
+      case 4 if x1 > x2 && y1 == y2 => (x1 + step, y1, x2 + 2 * step, y2)
+      case 4 if x1 == x2 && y2 != y1 => (x1 + step, y1, x2 + step, y2)
 
-      if (newx1>=0 && newx2>=0 && newy1>=0 && newy2>=0 && !(empty.contains((newx1,newy1)) || empty.contains((newx2,newy2))) &&
-        !(spec.contains((newx1,newy1)) && (newx1,newy1)==(newx2,newy2))){
-
-        acc += ((newx1, newy1, newx2, newy2))
-      }
+      case _ => (x1, y1, x2, y2)
     }
-    System.out.println("lenght before "+acc.length)
-    acc.toList
   }
+
 
   def loadLevel(stage: Stage, level: Int, fromFile:Boolean): Unit ={
     val arena=getLinesFromFile("level"+level+".txt")
@@ -308,7 +280,6 @@ object Bloxorz extends JFXApp3 {
     if (fromFile) playFromFile()
     startLevel(stage, state)
   }
-
   def startLevel(stage: Stage, state:ObjectProperty[State]): Unit ={
     stage.scene.value.onKeyPressed = key => {
      if (List(KeyCode.W,KeyCode.S,KeyCode.A,KeyCode.D,KeyCode.UP,KeyCode.DOWN,KeyCode.LEFT,KeyCode.RIGHT).contains(key.getCode) && state.value.blox!=null)
