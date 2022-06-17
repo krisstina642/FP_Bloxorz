@@ -1,21 +1,22 @@
 package hello
 
-
 import javafx.scene.input.KeyCode
 import scalafx.application.JFXApp3
 import scalafx.event.ActionEvent
 import scalafx.scene.Scene
-import scalafx.scene.control.Button
+import scalafx.scene.control.{Button, ContextMenu, MenuItem}
 import scalafx.scene.paint._
 import scalafx.Includes._
 import scalafx.beans.property.ObjectProperty
 import scalafx.geometry.{Insets, Pos}
+import scalafx.scene.AccessibleRole.MenuItem
 import scalafx.scene.effect.DropShadow
 import scalafx.scene.image.{Image, ImageView}
-import scalafx.scene.layout.VBox.getMargin
+import scalafx.scene.input.KeyCode.ContextMenu
+import scalafx.scene.input.MouseEvent
+import scalafx.scene.input.MouseEvent._
 import scalafx.scene.layout.{HBox, VBox}
 import scalafx.scene.paint.Color
-import scalafx.scene.paint.Color.{DarkGray, DarkRed, Red, White}
 import scalafx.scene.shape.Rectangle
 import scalafx.scene.text.Text
 import scalafx.stage.FileChooser.ExtensionFilter
@@ -45,23 +46,7 @@ object Bloxorz extends JFXApp3 {
       }
     }
   }
-  def createMapButton(width: Double, height:Double, int:Int): Button ={
-    val but= new Button()
-    but.graphic = new ImageView() {image = new Image("level"+int+".png")}
-    but.setPrefSize(width,height)
-      but.alignmentInParent =
-      int%4 match {
-        case 1 =>Pos.TopLeft
-        case 2 =>Pos.TopRight
-        case 3 =>Pos.BottomLeft
-        case 0 =>Pos.BottomRight
-      }
-     but.onAction = {
-          System.out.println("action")
-      (e: ActionEvent) => loadLevel(stage, int, false)
-    }
-        but
-  }
+
   def createRect(xr:Double, yr:Double, color: Color) = new Rectangle{
     x=xr
     y=yr
@@ -113,7 +98,6 @@ object Bloxorz extends JFXApp3 {
 
   case class State(stage: Stage,level: Int, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
 
-
     def newState(dir: Int): State={
       val (newx1, newy1, newx2, newy2) = calculatePosition(blox.head._1,blox.head._2,blox.tail.head._1,blox.tail.head._2, dir)
 
@@ -142,12 +126,34 @@ object Bloxorz extends JFXApp3 {
     }
   }
 
-  def chooseLevel(stage: Stage)={
+
+
+  def chooseLevel(stage: Stage, play: Boolean)={  // true -play false - edit
     val stop=4;
     val vBox=new VBox(20)
     var hBox=new HBox(20)
 
     hBox.alignment = Pos.BaselineCenter
+
+    def createMapButton(width: Double, height:Double, int:Int): Button ={
+      val but= new Button()
+      but.graphic = new ImageView() {image = new Image("level"+int+".png")}
+      but.setPrefSize(width,height)
+      but.alignmentInParent =
+        int%4 match {
+          case 1 =>Pos.TopLeft
+          case 2 =>Pos.TopRight
+          case 3 =>Pos.BottomLeft
+          case 0 =>Pos.BottomRight
+        }
+      but.onAction = {
+        (e: ActionEvent) => play match {
+          case true => loadLevel(stage, int, false)
+          case _ => createLevel(stage, int)
+        }
+      }
+      but
+    }
 
     @tailrec
     def chlvl(int: Int) {
@@ -246,6 +252,88 @@ object Bloxorz extends JFXApp3 {
     }
   }
 
+  def createLevel(stage: Stage, level: Int): Unit = {
+    val arena=getLinesFromFile("level"+level+".txt")
+    val (blox, end, empty, spec)=getBlocks(arena)
+    val rectangles:List[Rectangle]= createRect(blox.head._1, blox.head._2, Color.Blue) :: getRectangles(arena).filterNot( p=> (p.x.value, p.y.value)==(blox.head._1,blox.head._2))
+    stage.scene.value.content=rectangles
+    def getScalaFill(paint: Paint):Paint=paint
+    def col(rectangle: Rectangle, color: Color): Unit ={
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(color)) r.setFill(Color.Gray)})
+      rectangle.setFill(color)
+      }
+    def invertMap()={
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(Color.Red)) r.setFill(Color.Blue)
+      else if(getScalaFill(r.getFill) == getScalaFill(Color.Blue)) r.setFill(Color.Red) })
+    }
+    def replaceSpecial()={
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(Color.LightGray)) r.setFill(Color.Gray)})
+    }
+    rectangles.foreach(r=>{
+     //r.onMouseDragOver = (e: MouseEvent) => System.out.println("drag")
+      r.handleEvent(MouseEntered){
+        a:MouseEvent=>{
+          r.setArcWidth(20)
+          r.setArcHeight(20)
+        }
+      }
+      r.handleEvent(MouseExited){
+        a:MouseEvent=>{
+          r.setArcWidth(0)
+          r.setArcHeight(0)
+        }
+      }
+
+
+      val delete:MenuItem = new MenuItem("Delete")
+      delete.onAction=(e: ActionEvent) =>{r.setFill(Color.Black)}
+      val special:MenuItem = new MenuItem("Set Special")
+      special.onAction=(e: ActionEvent) =>{r.setFill(Color.LightGray)}
+      val basic:MenuItem = new MenuItem("Set Basic")
+      basic.onAction=(e: ActionEvent) =>{r.setFill(Color.Gray)}
+      val start:MenuItem = new MenuItem("Set Start")
+      start.onAction=(e: ActionEvent) =>{col(r, Color.Blue);}
+      val end:MenuItem = new MenuItem("Set End")
+      end.onAction=(e: ActionEvent) =>{col(r, Color.Red);}
+      val invert:MenuItem = new MenuItem("Invert")
+      invert.onAction=(e: ActionEvent) =>{invertMap()}
+      val removeSpec:MenuItem = new MenuItem("Remove Special")
+      removeSpec.onAction=(e: ActionEvent) =>{replaceSpecial()}
+      
+
+      r.handleEvent(MousePressed){
+        a:MouseEvent=>{
+          val contextMenu: ContextMenu = new ContextMenu();
+          if (a.secondaryButtonDown){
+            contextMenu.getItems.addAll(invert,removeSpec)
+          }
+          else {
+            r.setArcWidth(80)
+            r.setArcHeight(80)
+            getScalaFill(r.getFill()) match {
+              case Color.Blue => {
+                System.out.println("START")
+              }
+              case Color.Gray => {
+                contextMenu.getItems.addAll(delete, special, start, end)
+                System.out.println("OBICNA")
+              }
+              case Color.LightGray => {
+                contextMenu.getItems.addAll(delete, basic)
+                System.out.println("SPECIJALNA")
+              }
+              case Color.Red => {
+                System.out.println("KRAJ")
+              }
+
+            }
+          }
+            contextMenu.show(stage, a.screenX, a.screenY)
+        }
+      }
+    })
+
+  }
 
   def loadLevel(stage: Stage, level: Int, fromFile:Boolean): Unit ={
     val arena=getLinesFromFile("level"+level+".txt")
@@ -327,19 +415,21 @@ object Bloxorz extends JFXApp3 {
   }
   def createMainMenu(stage: Stage)={
     val quit=createButton("QUIT")
+    val createLevel=createButton("CREATE LEVEL")
     val start=createButton("START")
     quit.onAction = (e: ActionEvent) => stage.close()
-    start.onAction = (e: ActionEvent) => chooseLevel(stage)
-    val cnt:VBox=createMenu(stage, List(start,quit))
+    createLevel.onAction = (e: ActionEvent) => chooseLevel(stage, false)
+    start.onAction = (e: ActionEvent) => chooseLevel(stage, true)
+    val cnt:VBox=createMenu(stage, List(start,createLevel,quit))
     cnt.getChildren.add(0,new Text {
       text = "BLOXORZ"
       margin = Insets(50, 50, 50, 50)
       style = "-fx-font: bold 35pt sans-serif"
       fill = new LinearGradient(
         endX = 0,
-        stops = Stops(Red, DarkGray))
+        stops = Stops(Color.Red, Color.DarkGray))
       effect = new DropShadow {
-        color = DarkRed
+        color = Color.DarkRed
         radius = 15
         spread = 0.25
         }
@@ -366,14 +456,14 @@ object Bloxorz extends JFXApp3 {
       fill = new LinearGradient(
         endX = 0,
         stops = Stops(win match{
-          case true => White
-          case false => Red
-        }, DarkGray)
+          case true => Color.White
+          case false => Color.Red
+        }, Color.DarkGray)
       )
       effect = new DropShadow {
         color = win match{
-          case true => DarkGray
-          case false => DarkRed
+          case true => Color.DarkGray
+          case false => Color.DarkRed
         }
         radius = 15
         spread = 0.25
