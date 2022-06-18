@@ -82,21 +82,56 @@ object Bloxorz extends JFXApp3 {
     val initialBlox = ListBuffer[(Double,Double)]()
     var endPos:(Double, Double)=(80,80)
     for ((line:String, i) <- src.zipWithIndex) {
-    for ((e,j) <- line.toUpperCase.zipWithIndex) {
+      for ((e, j) <- line.toUpperCase.zipWithIndex) {
         e.toUpper match {
-          case '–' => empty.append((j*step, i*step))
-          case '-' => empty.append((j*step, i*step))
-          case 'S' => initialBlox.append((j*step, i*step)).append((j*step, i*step))
-          case 'T' => endPos = (j*step, i*step)
-          case '.' => special.append((j*step, i*step))
+          case '–' => empty.append((j * step, i * step))
+          case '-' => empty.append((j * step, i * step))
+          case 'S' => initialBlox.append((j * step, i * step)).append((j * step, i * step))
+          case 'T' => endPos = (j * step, i * step)
+          case '.' => special.append((j * step, i * step))
           case _ => {}
         }
-    }
+      }
     }
     (initialBlox.toList, endPos, empty.toList,special.toList)
   }
 
   case class State(stage: Stage,level: Int, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
+
+    def createPauseMenu( win: Boolean): Unit ={
+      val again=createButton("AGAIN?")
+      val solution=createButton("SOLUTION")
+      val sequence=createButton("PLAY FROM FILE")
+      val main=createButton("MAIN MENU")
+      solution.onAction = (e:ActionEvent) => {findSolution(level)}
+      sequence.onAction = (e:ActionEvent) => {loadLevel(level,true)}
+      again.onAction = (e:ActionEvent) => {loadLevel(level,false)}
+      main.onAction = (e:ActionEvent) => {createMainMenu()}
+      val cnt:VBox=createMenu(List(again,solution,sequence,main))
+      cnt.getChildren.add(0,new Text {
+        text = win match{
+          case true => "YOU WIN"
+          case false => "FAIL"
+        }
+        margin = Insets(50, 50, 50, 50)
+        style = "-fx-font: bold 20pt sans-serif"
+        fill = new LinearGradient(
+          endX = 0,
+          stops = Stops(win match{
+            case true => Color.White
+            case false => Color.Red
+          }, Color.DarkGray)
+        )
+        effect = new DropShadow {
+          color = win match{
+            case true => Color.DarkGray
+            case false => Color.DarkRed
+          }
+          radius = 15
+          spread = 0.25
+        }}
+      )
+    }
 
     def newState(dir: Int): State={
       val (newx1, newy1, newx2, newy2) = calculatePosition(blox.head._1,blox.head._2,blox.tail.head._1,blox.tail.head._2, dir)
@@ -107,12 +142,12 @@ object Bloxorz extends JFXApp3 {
           (newx1==newx2 && newy1==newy2 && specialBloxList.contains((newx1,newy1))) ||
           emptyBloxList.contains((newx1,newy1)) || emptyBloxList.contains((newx2,newy2))) {
           System.out.println("end game")
-          createPauseMenu(stage,level, false)
+          createPauseMenu( false)
           null
         } /// end game
         else if (newx1==newx2 && (newx2==endPos._1) && newy1==newy2 && newy2==endPos._2 ){
           System.out.println("win")
-          createPauseMenu(stage,level,true)
+          createPauseMenu(true)
           null
         }
         else {
@@ -128,7 +163,7 @@ object Bloxorz extends JFXApp3 {
 
 
 
-  def chooseLevel(stage: Stage, play: Boolean)={  // true -play false - edit
+  def chooseLevel(play: Boolean)={  // true -play false - edit
     val stop=4;
     val vBox=new VBox(20)
     var hBox=new HBox(20)
@@ -148,8 +183,8 @@ object Bloxorz extends JFXApp3 {
         }
       but.onAction = {
         (e: ActionEvent) => play match {
-          case true => loadLevel(stage, int, false)
-          case _ => createLevel(stage, int)
+          case true => loadLevel(int, false)
+          case _ => createLevel(int)
         }
       }
       but
@@ -171,11 +206,16 @@ object Bloxorz extends JFXApp3 {
     if (hBox.getChildren().size>0) vBox.getChildren().add(hBox)
     stage.scene.value.content = vBox
   }
-  def findSolution(stage:Stage, level:Int)={
+
+  def saveAs()={
     val fileChooser: FileChooser = new FileChooser
     fileChooser.setTitle("Save As")
     fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
-    val saveFile = fileChooser.showSaveDialog(stage)
+     fileChooser.showSaveDialog(stage)
+  }
+
+  def findSolution(level:Int)={
+    val saveFile = saveAs()
     if (saveFile!=null) {
 
       val writer = new PrintWriter(new File(saveFile.getAbsolutePath))
@@ -252,7 +292,7 @@ object Bloxorz extends JFXApp3 {
     }
   }
 
-  def createLevel(stage: Stage, level: Int): Unit = {
+  def createLevel(level: Int): Unit = {
     val arena=getLinesFromFile("level"+level+".txt")
     val (blox, end, empty, spec)=getBlocks(arena)
     val rectangles:List[Rectangle]= getRectangles(arena)
@@ -317,7 +357,7 @@ object Bloxorz extends JFXApp3 {
       removeSpec.onAction=(e: ActionEvent) =>{replaceSpecial()}
       val saveMapAs:MenuItem = new MenuItem("Save As")
       saveMapAs.onAction=(e: ActionEvent) =>{
-        ////Save as
+        //Save as
       }
 
 
@@ -359,7 +399,7 @@ object Bloxorz extends JFXApp3 {
 
   }
 
-  def loadLevel(stage: Stage, level: Int, fromFile:Boolean): Unit ={
+  def loadLevel(level: Int, fromFile:Boolean): Unit ={
     val arena=getLinesFromFile("level"+level+".txt")
     val (blox, end, empty, spec)=getBlocks(arena)
     initialBlox = blox
@@ -381,7 +421,7 @@ object Bloxorz extends JFXApp3 {
                   case "D" => 2
                   case "L" => 3
                   case "R" => 4
-                  case _ => startLevel(stage, state)
+                  case _ => startLevel()
                     0
                 }))
           if (state.value.blox != null) stage.scene.value.content = state.value.rectangles
@@ -389,31 +429,32 @@ object Bloxorz extends JFXApp3 {
       }
     }
 
+    def startLevel(): Unit ={
+      stage.scene.value.onKeyPressed = key => {
+        if (List(KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.UP, KeyCode.DOWN, KeyCode.LEFT, KeyCode.RIGHT).contains(key.getCode) && state.value.blox != null) {
+          state.update(
+            state.value.newState(
+              key.getCode match {
+                case KeyCode.W => 1
+                case KeyCode.S => 2
+                case KeyCode.A => 3
+                case KeyCode.D => 4
+                case KeyCode.UP => 1
+                case KeyCode.DOWN => 2
+                case KeyCode.LEFT => 3
+                case KeyCode.RIGHT => 4
+              }))
+          if (state.value.blox != null) stage.scene.value.content = state.value.rectangles
+        }
+      }
+    }
+
     if (fromFile) playFromFile()
-    startLevel(stage, state)
-  }
-  def startLevel(stage: Stage, state:ObjectProperty[State]): Unit ={
-    stage.scene.value.onKeyPressed = key => {
-     if (List(KeyCode.W,KeyCode.S,KeyCode.A,KeyCode.D,KeyCode.UP,KeyCode.DOWN,KeyCode.LEFT,KeyCode.RIGHT).contains(key.getCode) && state.value.blox!=null)
-     {
-      state.update(
-        state.value.newState(
-        key.getCode match {
-        case KeyCode.W => 1
-        case KeyCode.S => 2
-        case KeyCode.A =>  3
-        case KeyCode.D =>  4
-        case KeyCode.UP =>  1
-        case KeyCode.DOWN =>  2
-        case KeyCode.LEFT =>  3
-        case KeyCode.RIGHT =>  4
-      }))
-     if(state.value.blox!=null)  stage.scene.value.content = state.value.rectangles
-    }
-    }
+    startLevel()
   }
 
-  def createMenu(stage: Stage, list: List[Button]): VBox={
+
+  def createMenu(list: List[Button]): VBox={
     stage.title = "Bloxorz"
     val cnt=new VBox{
       spacing = 5
@@ -437,14 +478,14 @@ object Bloxorz extends JFXApp3 {
       prefHeight = 30.0
     }
   }
-  def createMainMenu(stage: Stage)={
+  def createMainMenu()={
     val quit=createButton("QUIT")
     val createLevel=createButton("CREATE LEVEL")
     val start=createButton("START")
     quit.onAction = (e: ActionEvent) => stage.close()
-    createLevel.onAction = (e: ActionEvent) => chooseLevel(stage, false)
-    start.onAction = (e: ActionEvent) => chooseLevel(stage, true)
-    val cnt:VBox=createMenu(stage, List(start,createLevel,quit))
+    createLevel.onAction = (e: ActionEvent) => chooseLevel(false)
+    start.onAction = (e: ActionEvent) => chooseLevel(true)
+    val cnt:VBox=createMenu(List(start,createLevel,quit))
     cnt.getChildren.add(0,new Text {
       text = "BLOXORZ"
       margin = Insets(50, 50, 50, 50)
@@ -460,47 +501,12 @@ object Bloxorz extends JFXApp3 {
     })
   }
 
-  def createPauseMenu(stage: Stage, level:Int, win: Boolean): Unit ={
-    val again=createButton("AGAIN?")
-    val solution=createButton("SOLUTION")
-    val sequence=createButton("PLAY FROM FILE")
-    val main=createButton("MAIN MENU")
-    solution.onAction = (e:ActionEvent) => {findSolution(stage, level)}
-    sequence.onAction = (e:ActionEvent) => {loadLevel(stage, level,true)}
-    again.onAction = (e:ActionEvent) => {loadLevel(stage, level,false)}
-    main.onAction = (e:ActionEvent) => {createMainMenu(stage)}
-    val cnt:VBox=createMenu(stage, List(again,solution,sequence,main))
-    cnt.getChildren.add(0,new Text {
-      text = win match{
-        case true => "YOU WIN"
-        case false => "FAIL"
-      }
-      margin = Insets(50, 50, 50, 50)
-      style = "-fx-font: bold 20pt sans-serif"
-      fill = new LinearGradient(
-        endX = 0,
-        stops = Stops(win match{
-          case true => Color.White
-          case false => Color.Red
-        }, Color.DarkGray)
-      )
-      effect = new DropShadow {
-        color = win match{
-          case true => Color.DarkGray
-          case false => Color.DarkRed
-        }
-        radius = 15
-        spread = 0.25
-      }}
-    )
-  }
-
   override def start(): Unit = {
     stage = new JFXApp3.PrimaryStage {
       width = 600
       height = 600
       }
-    createMainMenu(stage)
+    createMainMenu()
     }
 
 }
