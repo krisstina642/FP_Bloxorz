@@ -40,7 +40,8 @@ object Bloxorz extends JFXApp3 {
   val emptyColor: Paint=getScalaFill(Color.Black)
   val startColor: Paint=getScalaFill(Color.Blue)
   val endColor: Paint=getScalaFill(Color.Red)
-  
+
+
   def createButton(text_ :String, function: Unit):Button ={
     new Button {
       text = text_
@@ -52,7 +53,7 @@ object Bloxorz extends JFXApp3 {
     }
   }
 
-  def createRect(xr:Double, yr:Double, color: Paint): Rectangle = new Rectangle{
+  def createRect(xr:Double, yr:Double, color: Color): Rectangle = new Rectangle{
     x=xr
     y=yr
     width = step
@@ -71,12 +72,12 @@ object Bloxorz extends JFXApp3 {
     for ((line:String, i) <- src.zipWithIndex)
       for ((e,j) <- line.toUpperCase.zipWithIndex) {
         e.toUpper match {
-          case '–'  => rec += createRect( j*step, i*step , emptyColor)
-          case '-' => rec += createRect( j*step, i*step , emptyColor)
-          case 'O' => rec += createRect( j*step, i*step , basicColor)
-          case 'S' => rec += createRect(j*step, i*step , basicColor)
-          case 'T' => rec += createRect( j*step, i*step , endColor)
-          case '.' => rec += createRect( j*step, i*step , specColor)
+          case '–'  => rec += createRect( j*step, i*step , Color.Black)
+          case '-' => rec += createRect( j*step, i*step , Color.Black)
+          case 'O' => rec += createRect( j*step, i*step , Color.Gray)
+          case 'S' => rec += createRect(j*step, i*step , Color.Gray)
+          case 'T' => rec += createRect( j*step, i*step , Color.Red)
+          case '.' => rec += createRect( j*step, i*step , Color.LightGray)
         }
     }
     rec.toList
@@ -161,7 +162,7 @@ object Bloxorz extends JFXApp3 {
       State(stage, src, content, newBlox, endPos, emptyBloxList, specialBloxList)
     }
     def rectangles: List[Rectangle]= {
-      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, startColor) }
+      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, Color.Blue) }
     }
   }
 
@@ -302,22 +303,22 @@ object Bloxorz extends JFXApp3 {
 
   def createLevel(level: Int): Unit = {
     val arena=getLinesFromFile("level"+level+".txt")
-    val (blox, end, empty, spec)=getBlocks(arena)
+    val (blox, end, empty, spec) = getBlocks(arena)
     val rectangles:List[Rectangle]= getRectangles(arena)
-    rectangles.foreach(r=>if (r.x.value ==blox.head._1 && r.y.value ==blox.head._2) r.setFill(startColor))
+    rectangles.foreach(r=>if (r.x.value == blox.head._1 && r.y.value == blox.head._2) r.setFill(Color.Blue))
     stage.scene.value.content=rectangles
-    def col(rectangle: Rectangle, color: Paint): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(color)) r.setFill(basicColor)})
+    def col(rectangle: Rectangle, color: Color): Unit ={
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(color)) r.setFill(Color.Gray)})
       rectangle.setFill(color)
       }
     def invertMap(): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(endColor)) r.setFill(startColor)
-      else if(getScalaFill(r.getFill) == getScalaFill(startColor)) r.setFill(endColor) })
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(Color.Red)) r.setFill(Color.Blue)
+      else if(getScalaFill(r.getFill) == getScalaFill(Color.Blue)) r.setFill(Color.Red) })
     }
     def replaceSpecial(): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(specColor)) r.setFill(basicColor)})
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(Color.LightGray)) r.setFill(Color.Gray)})
     }
-      def isOnEdge(num: Int, color: Paint): Boolean = {
+      def isOnEdge(num: Int, color: Color): Boolean = {
         if (num < 14 * 13 && getScalaFill(rectangles(num + 14).getFill) == getScalaFill(color)) {
           System.out.println("down")
           return true
@@ -327,7 +328,6 @@ object Bloxorz extends JFXApp3 {
         if (num > 13 && getScalaFill(rectangles(num - 14).getFill) == getScalaFill(color)) return true
         false
       }
-
 
     rectangles.indices.foreach(i=>{
      //r.onMouseDragOver = (e: MouseEvent) => System.out.println("drag")
@@ -346,17 +346,17 @@ object Bloxorz extends JFXApp3 {
       }
 
       val deleteBasic:MenuItem = new MenuItem("Delete")
-      deleteBasic.onAction=(e: ActionEvent) =>{r.setFill(emptyColor)}
+      deleteBasic.onAction=(e: ActionEvent) =>{r.setFill(Color.Black)}
       val addBasic:MenuItem = new MenuItem("Add")
-      addBasic.onAction=(e: ActionEvent) =>{r.setFill(basicColor)}
+      addBasic.onAction=(e: ActionEvent) =>{r.setFill(Color.Gray)}
       val special:MenuItem = new MenuItem("Set Special")
-      special.onAction=(e: ActionEvent) =>{r.setFill(specColor)}
+      special.onAction=(e: ActionEvent) =>{r.setFill(Color.LightGray)}
       val basic:MenuItem = new MenuItem("Set Basic")
-      basic.onAction=(e: ActionEvent) =>{r.setFill(basicColor)}
+      basic.onAction=(e: ActionEvent) =>{r.setFill(Color.Gray)}
       val start:MenuItem = new MenuItem("Set Start")
-      start.onAction=(e: ActionEvent) =>{col(r, startColor);}
+      start.onAction=(e: ActionEvent) =>{col(r, Color.Blue);}
       val end:MenuItem = new MenuItem("Set End")
-      end.onAction=(e: ActionEvent) =>{col(r, endColor);}
+      end.onAction=(e: ActionEvent) =>{col(r, Color.Red);}
       val invert:MenuItem = new MenuItem("Invert")
       invert.onAction=(e: ActionEvent) =>{invertMap()}
       val removeSpec:MenuItem = new MenuItem("Remove Special")
@@ -371,42 +371,45 @@ object Bloxorz extends JFXApp3 {
           def writeMap(current:Int): Unit ={
             if (current==14*14) writer.close()
             else{
-              if (getScalaFill(rectangles(current).getFill())==specColor) writer.write(".")
-              else if (getScalaFill(rectangles(current).getFill())==basicColor) writer.write("o")
-              else if (getScalaFill(rectangles(current).getFill())==endColor) writer.write("T")
-              else if (getScalaFill(rectangles(current).getFill())==startColor) writer.write("S")
-              else if (getScalaFill(rectangles(current).getFill())==emptyColor) writer.write("-")
+              if (getScalaFill(rectangles(current).getFill())==Color.LightGray) writer.write(".")
+              else if (getScalaFill(rectangles(current).getFill())==Color.Gray) writer.write("o")
+              else if (getScalaFill(rectangles(current).getFill())==Color.Red) writer.write("T")
+              else if (getScalaFill(rectangles(current).getFill())==Color.Blue) writer.write("S")
+              else if (getScalaFill(rectangles(current).getFill())==Color.Black) writer.write("-")
               if (current % 14 == 13 && current!=rectangles.length-1) writer.write("\n")
               writeMap(current+1)
             }
           }
-
           writeMap(0)
+          createMainMenu()
         }
       }
+
+      val exitEditMode:MenuItem = new MenuItem("Exit Edit Mode");
+      exitEditMode.onAction=(e: ActionEvent) =>{ createMainMenu()}
 
       r.handleEvent(MousePressed){
         a:MouseEvent=>{
           val contextMenu: ContextMenu = new ContextMenu()
           if (a.secondaryButtonDown){
-            contextMenu.getItems.addAll(invert,removeSpec,saveMapAs)
+            contextMenu.getItems.addAll(invert,removeSpec,saveMapAs,exitEditMode)
           }
           else {
             r.setArcWidth(80)
             r.setArcHeight(80)
             getScalaFill(r.getFill()) match {
-              case emptyColor =>
-                if (isOnEdge(i,basicColor)) contextMenu.getItems.addAll(addBasic)
-              case startColor =>
+              case Color.Black =>
+                if (isOnEdge(i,Color.Gray)) contextMenu.getItems.addAll(addBasic)
+              case Color.Blue =>
                 System.out.println("START")
-              case basicColor =>
-                if (isOnEdge(i,emptyColor)) contextMenu.getItems.addAll(deleteBasic)
+              case Color.Gray =>
+                if (isOnEdge(i,Color.Black)) contextMenu.getItems.addAll(deleteBasic)
                 contextMenu.getItems.addAll(special, start, end)
                 System.out.println("OBICNA")
-              case specColor =>
+              case Color.LightGray =>
                 contextMenu.getItems.addAll(basic)
                 System.out.println("SPECIJALNA")
-              case endColor =>
+              case Color.Red =>
                 System.out.println("KRAJ")
 
             }
