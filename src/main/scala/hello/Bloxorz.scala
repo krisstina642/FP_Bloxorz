@@ -28,8 +28,8 @@ import scala.io.Source
 object Bloxorz extends JFXApp3 {
 
   val step = 40
-  val sceneWidth = 560
-  val sceneHeight = 590
+  val sceneWidth = 575
+  val sceneHeight = 595
 
   def getScalaFill(paint: Paint):Paint=paint
 
@@ -70,12 +70,12 @@ object Bloxorz extends JFXApp3 {
     for ((line:String, i) <- src.zipWithIndex)
       for ((e,j) <- line.toUpperCase.zipWithIndex) {
         e.toUpper match {
-          case '–'  => rec += createRect( j*step, i*step , Color.Black)
-          case '-' => rec += createRect( j*step, i*step , Color.Black)
-          case 'O' => rec += createRect( j*step, i*step , Color.Gray)
-          case 'S' => rec += createRect(j*step, i*step , Color.Gray)
-          case 'T' => rec += createRect( j*step, i*step , Color.Red)
-          case '.' => rec += createRect( j*step, i*step , Color.LightGray)
+          case '–'  => rec += createRect( j*step, i*step , Color.Black )
+          case '-' => rec += createRect( j*step, i*step , Color.Black )
+          case 'O' => rec += createRect( j*step, i*step , Color.Gray )
+          case 'S' => rec += createRect( j*step, i*step , Color.Gray )
+          case 'T' => rec += createRect( j*step, i*step , Color.Red )
+          case '.' => rec += createRect( j*step, i*step , Color.LightGray )
         }
     }
     rec.toList
@@ -321,13 +321,13 @@ object Bloxorz extends JFXApp3 {
       else if(getScalaFill(r.getFill) == getScalaFill(Color.Blue)) r.setFill(Color.Red) })
     }
     def replaceSpecial(): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == specColor) r.setFill(Color.Gray)})
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == Color.LightGray) r.setFill(Color.Gray)})
     }
-      def isOnEdge(num: Int, color: Color): Boolean = {
-        if (num < 14 * 13 && getScalaFill(rectangles(num + 14).getFill) == getScalaFill(color)) return true
-        if (num % 14 < 13 && getScalaFill(rectangles(num + 1).getFill) == getScalaFill(color)) return true
-        if (num % 14 > 0 && getScalaFill(rectangles(num - 1).getFill) == getScalaFill(color)) return true
-        if (num > 13 && getScalaFill(rectangles(num - 14).getFill) == getScalaFill(color)) return true
+      def isOnEdge(num: Int, color: List[Color]): Boolean = {
+        if (num < 14 * 13 && color.contains(getScalaFill(rectangles(num + 14).getFill))) return true
+        if (num % 14 < 13 && color.contains(getScalaFill(rectangles(num + 1).getFill))) return true
+        if (num % 14 > 0 && color.contains(getScalaFill(rectangles(num - 1).getFill))) return true
+        if (num > 13 && color.contains(getScalaFill(rectangles(num - 14).getFill))) return true
         false
       }
 
@@ -384,7 +384,6 @@ object Bloxorz extends JFXApp3 {
       saveMapAs.onAction=() =>{
         val saveFile = saveFileAs()
         if (saveFile!=null) {
-          println("NOT NULL " + rectangles.length)
           val writer = new PrintWriter(new File(saveFile.getAbsolutePath))
           @tailrec
           def writeMap(current:Int): Unit ={
@@ -440,11 +439,11 @@ object Bloxorz extends JFXApp3 {
             getScalaFill(r.getFill()) match {
               case Color.Black =>
                 contextMenu.getItems.add(filter)
-                if (isOnEdge(i,Color.Gray)) contextMenu.getItems.addAll(addBasic)
+                if (isOnEdge(i,List(Color.Gray,Color.LightGray,Color.Red,Color.Blue))) contextMenu.getItems.addAll(addBasic)
               case Color.Blue =>
                 println("START")
               case Color.Gray =>
-                if (isOnEdge(i,Color.Black)) contextMenu.getItems.addAll(deleteBasic)
+                if (isOnEdge(i,List(Color.Black))) contextMenu.getItems.addAll(deleteBasic)
                 contextMenu.getItems.addAll(special, start, end)
               case Color.LightGray =>
                 contextMenu.getItems.addAll(basic,filter)
@@ -569,6 +568,17 @@ object Bloxorz extends JFXApp3 {
   }
 
   override def start(): Unit = {
+    if (!Files.exists(Paths.get("level1.txt"))){
+      val writer = new PrintWriter(new File("level1.txt"))
+      writer.write("––––––––––––––\n––––––––––––––\n––––––––––––––\n––––––––––––––\n–ooo.–––––––––\n–oSoooo–––––––\n–ooooooooo––––\n––ooooooooo–––\n–––––––ooToo––\n–––––––ooo––––\n––––––––––––––\n––––––––––––––\n––––––––––––––\n––––––––––––––")
+      writer.close()
+      val writer2 = new PrintWriter(new File("level2.txt"))
+      writer2.write("––––––––––––––\n––––––––––––––\n––––S–––––––––\n––––o–––––––––\n––––oo––––––––\n–ooooo––––––––\n–ooo.oo–––––––\n–ooo.ooooo––––\n––ooooooooo–––\n–––––––o.ooo––\n–––––––ooo–o––\n–––––––––T––––\n––––––––––––––\n––––––––––––––")
+      writer2.close()
+      val writer3 = new PrintWriter(new File("level3.txt"))
+      writer3.write("--------------\n----o---------\n---oTo--------\n---ooo--------\n--oooo--------\n-ooooooo------\n-ooo.....-----\n-ooo.....o----\n--ooo-.oooo---\n----o-.o.ooo--\n------.ooooo--\n-------ooSo---\n--------ooo---\n--------------")
+      writer3.close()
+    }
     stage = new JFXApp3.PrimaryStage {
       width = sceneWidth
       height = sceneHeight
