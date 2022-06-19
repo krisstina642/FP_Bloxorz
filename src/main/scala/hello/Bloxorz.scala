@@ -28,8 +28,8 @@ import scala.io.Source
 object Bloxorz extends JFXApp3 {
 
   val step = 40
-  val sceneWidth = 600
-  val sceneHeight = 600
+  val sceneWidth = 560
+  val sceneHeight = 590
 
   def getScalaFill(paint: Paint):Paint=paint
 
@@ -146,8 +146,8 @@ object Bloxorz extends JFXApp3 {
       val (newx1, newy1, newx2, newy2) = calculatePosition(blox.head._1,blox.head._2,blox.tail.head._1,blox.tail.head._2, dir)
 
       val newBlox :List[(Double,Double)]=
-        if (newx1 < 0 || newx1 >= 600 || newy1 < 0 || newy1 >= 600 ||
-          newx2 < 0 || newx2 >= 600 || newy2 < 0 || newy2 >= 600 ||
+        if (newx1 < 0 || newx1 >= 560 || newy1 < 0 || newy1 >= 560 ||
+          newx2 < 0 || newx2 >= 560 || newy2 < 0 || newy2 >= 560 ||
           (newx1==newx2 && newy1==newy2 && specialBloxList.contains((newx1,newy1))) ||
           emptyBloxList.contains((newx1,newy1)) || emptyBloxList.contains((newx2,newy2))) {
           println("game over")
@@ -171,8 +171,8 @@ object Bloxorz extends JFXApp3 {
 
   def chooseLevel(play: Boolean): Unit ={  // true -play false - edit
     val stop=4
-    val vBox=new VBox(20)
-    var hBox=new HBox(20)
+    val vBox=new VBox(0)
+    var hBox=new HBox(0)
 
     hBox.alignment = Pos.BaselineCenter
 
@@ -324,21 +324,31 @@ object Bloxorz extends JFXApp3 {
       rectangles.foreach(r=>{if(getScalaFill(r.getFill) == specColor) r.setFill(Color.Gray)})
     }
       def isOnEdge(num: Int, color: Color): Boolean = {
-        if (num < 14 * 13 && getScalaFill(rectangles(num + 14).getFill) == getScalaFill(color)) {
-          println("down")
-          return true
-        }
+        if (num < 14 * 13 && getScalaFill(rectangles(num + 14).getFill) == getScalaFill(color)) return true
         if (num % 14 < 13 && getScalaFill(rectangles(num + 1).getFill) == getScalaFill(color)) return true
         if (num % 14 > 0 && getScalaFill(rectangles(num - 1).getFill) == getScalaFill(color)) return true
         if (num > 13 && getScalaFill(rectangles(num - 14).getFill) == getScalaFill(color)) return true
         false
       }
 
-    def filterRadius( radius:Int ): Unit ={
-
+    def filterRadius( radius:Int, num:Int ): Unit ={
+      val x=num/14
+      val y=num%14
+      val xmin = if (x-radius<0) 0 else x-radius
+      val ymin = if (y-radius<0) 0 else y-radius
+      val xmax = if (x+radius>13) 13 else x+radius
+      val ymax = if (y+radius>13) 13 else y+radius
+      @tailrec
+      def filter(i:Int): Unit ={
+        if (i>=rectangles.length) return
+        else if (i/14<=xmax && i/14>=xmin && i%14<=ymax && i%14>=ymin && i!=num &&
+          getScalaFill(rectangles(i).getFill)==getScalaFill(Color.LightGray)) rectangles(num).fill=Color.Gray
+        else filter(i+1)
+      }
+      filter(0)
     }
 
-    rectangles.indices.foreach(i=>{
+    rectangles.indices.foreach( i => {
      //r.onMouseDragOver = (e: MouseEvent) => println("drag")
       val r= rectangles(i)
       r.handleEvent(MouseEntered){
@@ -393,8 +403,10 @@ object Bloxorz extends JFXApp3 {
           createMainMenu()
         }
       }
+
       val exitEditMode:MenuItem = new MenuItem("Exit Edit Mode")
       exitEditMode.onAction=() =>{ createMainMenu()}
+
       val filter:MenuItem=new MenuItem("Filter")
       filter.onAction=()=>{
         val dialog = new TextInputDialog(defaultValue = "1") {
@@ -406,13 +418,13 @@ object Bloxorz extends JFXApp3 {
         dialog.setHeaderText(null)
 
         val result = dialog.showAndWait()
-
         result match {
           case Some(name) => 
               name.toIntOption match {
-              case Some(int:Int) => filterRadius(int)
+              case Some(radius:Int) => filterRadius(radius, i)
+              case None =>
             }
-          case None       => println("Dialog was canceled.")
+          case None => println("Dialog was canceled.")
         }
       }
 
@@ -434,12 +446,9 @@ object Bloxorz extends JFXApp3 {
               case Color.Gray =>
                 if (isOnEdge(i,Color.Black)) contextMenu.getItems.addAll(deleteBasic)
                 contextMenu.getItems.addAll(special, start, end)
-                println("OBICNA")
               case Color.LightGray =>
                 contextMenu.getItems.addAll(basic,filter)
-                println("SPECIJALNA")
               case Color.Red =>
-                println("KRAJ")
 
             }
           }
@@ -504,9 +513,9 @@ object Bloxorz extends JFXApp3 {
     stage.title = "Bloxorz"
     val cnt=new VBox{
       spacing = 5
-      prefWidth = 600
-      prefHeight = 600
-      padding = Insets(50, 70, 70, 50)
+      prefWidth = sceneWidth
+      prefHeight = sceneHeight
+      padding = Insets(70, 0, 0, 0)
       alignment = Pos.BaselineCenter
       alignmentInParent= Pos.BaselineCenter
       children=list
@@ -543,9 +552,10 @@ object Bloxorz extends JFXApp3 {
     }
 
     val cnt:VBox=createMenu(List(start,loadFromFile, createLevel,quit))
+
     cnt.getChildren.add(0,new Text {
       text = "BLOXORZ"
-      margin = Insets(50, 50, 50, 50)
+      margin = Insets(50, 0, 0, 0)
       style = "-fx-font: bold 35pt sans-serif"
       fill = new LinearGradient(
         endX = 0,
@@ -560,8 +570,9 @@ object Bloxorz extends JFXApp3 {
 
   override def start(): Unit = {
     stage = new JFXApp3.PrimaryStage {
-      width = 600
-      height = 600
+      width = sceneWidth
+      height = sceneHeight
+      resizable = false
       }
     createMainMenu()
     }
