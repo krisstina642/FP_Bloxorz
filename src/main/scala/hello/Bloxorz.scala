@@ -2,9 +2,8 @@ package hello
 
 import javafx.scene.input.KeyCode
 import scalafx.application.JFXApp3
-import scalafx.event.ActionEvent
 import scalafx.scene.Scene
-import scalafx.scene.control.{Button, ContextMenu, MenuItem}
+import scalafx.scene.control.{Button, ContextMenu, MenuItem, TextInputDialog}
 import scalafx.scene.paint._
 import scalafx.Includes._
 import scalafx.beans.property.ObjectProperty
@@ -29,13 +28,12 @@ import scala.io.Source
 object Bloxorz extends JFXApp3 {
 
   val step = 40
-  var initialBlox:List[(Double, Double)] = null
-  var sceneWidth = 600
-  var sceneHeight = 600
+  val sceneWidth = 600
+  val sceneHeight = 600
 
   def getScalaFill(paint: Paint):Paint=paint
 
-  val specColor: Paint =getScalaFill(Color.LightGray)
+  val specColor: Paint =specColor
   val basicColor: Paint=getScalaFill(Color.Gray)
   val emptyColor: Paint=getScalaFill(Color.Black)
   val startColor: Paint=getScalaFill(Color.Blue)
@@ -47,7 +45,7 @@ object Bloxorz extends JFXApp3 {
       text = text_
       prefWidth = 200.0
       prefHeight = 30.0
-      onAction = (e: ActionEvent) => {
+      onAction = () => {
         function
       }
     }
@@ -105,14 +103,19 @@ object Bloxorz extends JFXApp3 {
   case class State(stage: Stage, src:String, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
 
     def createPauseMenu(win: Boolean): Unit ={
+
       val again=createButton("AGAIN?")
+      again.onAction = () => loadLevel(src,fromFile = false)
+
       val solution=createButton("SOLUTION")
+      solution.onAction = () => findSolution(src)
+
       val sequence=createButton("PLAY FROM FILE")
+      sequence.onAction = () => loadLevel(src, fromFile = true)
+
       val main=createButton("MAIN MENU")
-      solution.onAction = (e:ActionEvent) => {findSolution(src)}
-      sequence.onAction = (e:ActionEvent) => {loadLevel(src, fromFile = true)}
-      again.onAction = (e:ActionEvent) => {loadLevel(src,fromFile = false)}
-      main.onAction = (e:ActionEvent) => {createMainMenu()}
+      main.onAction = () => createMainMenu()
+
       val cnt:VBox=createMenu(List(again,solution,sequence,main))
       cnt.getChildren.add(0,new Text {
         text = win match{
@@ -147,12 +150,12 @@ object Bloxorz extends JFXApp3 {
           newx2 < 0 || newx2 >= 600 || newy2 < 0 || newy2 >= 600 ||
           (newx1==newx2 && newy1==newy2 && specialBloxList.contains((newx1,newy1))) ||
           emptyBloxList.contains((newx1,newy1)) || emptyBloxList.contains((newx2,newy2))) {
-          System.out.println("end game")
+          println("game over")
           createPauseMenu( false)
           null
         } /// end game
         else if (newx1==newx2 && (newx2==endPos._1) && newy1==newy2 && newy2==endPos._2 ){
-          System.out.println("win")
+          println("win")
           createPauseMenu(true)
           null
         }
@@ -166,7 +169,7 @@ object Bloxorz extends JFXApp3 {
     }
   }
 
-  def chooseLevel(play: Boolean)={  // true -play false - edit
+  def chooseLevel(play: Boolean): Unit ={  // true -play false - edit
     val stop=4
     val vBox=new VBox(20)
     var hBox=new HBox(20)
@@ -185,8 +188,8 @@ object Bloxorz extends JFXApp3 {
           case 0 =>Pos.BottomRight
         }
       but.onAction = {
-        (e: ActionEvent) => play match {
-          case true => loadLevel("level"+int+".txt", false)
+        () => play match {
+          case true => loadLevel("level"+int+".txt", fromFile = false)
           case _ => createLevel(int)
         }
       }
@@ -194,37 +197,38 @@ object Bloxorz extends JFXApp3 {
     }
 
     @tailrec
-    def chlvl(int: Int) {
+    def chooseLvl(int: Int): Unit = {
       if (int<=stop && Files.exists(Paths.get("level"+int+".txt"))) {
-        hBox.getChildren().add(createMapButton(sceneWidth/3, sceneHeight/3,int))
+        hBox.getChildren.add(createMapButton(sceneWidth/3, sceneHeight/3,int))
 
-        if(hBox.getChildren().size()==2) {
-          vBox.getChildren().add(hBox)
+        if(hBox.getChildren.size()==2) {
+          vBox.getChildren.add(hBox)
           hBox=new HBox()
         }
-        chlvl(int+1)
+        chooseLvl(int+1)
       }
     }
-    chlvl(1)
+
+    chooseLvl(1)
     if (hBox.getChildren.size>0) vBox.getChildren.add(hBox)
     stage.scene.value.content = vBox
   }
 
-  def saveAs(): File ={
+  def saveFileAs(): File ={
     val fileChooser: FileChooser = new FileChooser
     fileChooser.setTitle("Save As")
     fileChooser.getExtensionFilters.add(new ExtensionFilter("Text","*.txt"))
     fileChooser.showSaveDialog(stage)
   }
 
-  def open(): File ={
+  def openFile(): File ={
     val fileChooser: FileChooser = new FileChooser
     fileChooser.getExtensionFilters.add(new ExtensionFilter("Text","*.txt"))
     fileChooser.showOpenDialog(stage)
   }
 
   def findSolution(src:String): Unit ={
-    val saveFile = saveAs()
+    val saveFile = saveFileAs()
     if (saveFile!=null) {
 
       val writer = new PrintWriter(new File(saveFile.getAbsolutePath))
@@ -264,7 +268,7 @@ object Bloxorz extends JFXApp3 {
           writer.close()
         }
         else if (state(current)._1==state(current)._3 && state(current)._2==state(current)._4 && state(current)._1==end._1 && state(current)._2==end._2) {
-          //System.out.println("solved")
+          //println("solved")
           writeToFile(current, state, accFrom)
         }
         else {
@@ -275,7 +279,8 @@ object Bloxorz extends JFXApp3 {
       solveLevel(0, List((end._1, end._2, end._1, end._2)), List(0), blox.head)
     }
   }
-  def calculatePosition(x1:Double,y1:Double,x2:Double,y2:Double, direction:Int):(Double, Double, Double, Double)={
+
+  def calculatePosition(x1:Double, y1:Double, x2:Double, y2:Double, direction:Int):(Double, Double, Double, Double)={
     direction match {
       case 1 if x1 == x2 && y1 == y2 => (x1, y1 - step, x2, y2 - 2 * step)
       case 1 if x1 != x2 && y1 == y2 => (x1, y1 - step, x2, y2 - step)
@@ -316,11 +321,11 @@ object Bloxorz extends JFXApp3 {
       else if(getScalaFill(r.getFill) == getScalaFill(Color.Blue)) r.setFill(Color.Red) })
     }
     def replaceSpecial(): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(Color.LightGray)) r.setFill(Color.Gray)})
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == specColor) r.setFill(Color.Gray)})
     }
       def isOnEdge(num: Int, color: Color): Boolean = {
         if (num < 14 * 13 && getScalaFill(rectangles(num + 14).getFill) == getScalaFill(color)) {
-          System.out.println("down")
+          println("down")
           return true
         }
         if (num % 14 < 13 && getScalaFill(rectangles(num + 1).getFill) == getScalaFill(color)) return true
@@ -329,8 +334,12 @@ object Bloxorz extends JFXApp3 {
         false
       }
 
+    def filterRadius( radius:Int ): Unit ={
+
+    }
+
     rectangles.indices.foreach(i=>{
-     //r.onMouseDragOver = (e: MouseEvent) => System.out.println("drag")
+     //r.onMouseDragOver = (e: MouseEvent) => println("drag")
       val r= rectangles(i)
       r.handleEvent(MouseEntered){
         a:MouseEvent=>{
@@ -346,26 +355,26 @@ object Bloxorz extends JFXApp3 {
       }
 
       val deleteBasic:MenuItem = new MenuItem("Delete")
-      deleteBasic.onAction=(e: ActionEvent) =>{r.setFill(Color.Black)}
+      deleteBasic.onAction=() =>{r.setFill(Color.Black)} //(e: ActionEvent) =>{r.setFill(Color.Black)}
       val addBasic:MenuItem = new MenuItem("Add")
-      addBasic.onAction=(e: ActionEvent) =>{r.setFill(Color.Gray)}
+      addBasic.onAction=() =>{r.setFill(Color.Gray)}
       val special:MenuItem = new MenuItem("Set Special")
-      special.onAction=(e: ActionEvent) =>{r.setFill(Color.LightGray)}
+      special.onAction=() =>{r.setFill(Color.LightGray)}
       val basic:MenuItem = new MenuItem("Set Basic")
-      basic.onAction=(e: ActionEvent) =>{r.setFill(Color.Gray)}
+      basic.onAction=() =>{r.setFill(Color.Gray)}
       val start:MenuItem = new MenuItem("Set Start")
-      start.onAction=(e: ActionEvent) =>{col(r, Color.Blue);}
+      start.onAction=() =>{col(r, Color.Blue);}
       val end:MenuItem = new MenuItem("Set End")
-      end.onAction=(e: ActionEvent) =>{col(r, Color.Red);}
+      end.onAction=() =>{col(r, Color.Red);}
       val invert:MenuItem = new MenuItem("Invert")
-      invert.onAction=(e: ActionEvent) =>{invertMap()}
+      invert.onAction=() =>{invertMap()}
       val removeSpec:MenuItem = new MenuItem("Remove Special")
-      removeSpec.onAction=(e: ActionEvent) =>{replaceSpecial()}
+      removeSpec.onAction=() =>{replaceSpecial()}
       val saveMapAs:MenuItem = new MenuItem("Save As")
-      saveMapAs.onAction=(e: ActionEvent) =>{
-        val saveFile = saveAs()
+      saveMapAs.onAction=() =>{
+        val saveFile = saveFileAs()
         if (saveFile!=null) {
-          System.out.println("NOT NULL " + rectangles.length)
+          println("NOT NULL " + rectangles.length)
           val writer = new PrintWriter(new File(saveFile.getAbsolutePath))
           @tailrec
           def writeMap(current:Int): Unit ={
@@ -384,9 +393,28 @@ object Bloxorz extends JFXApp3 {
           createMainMenu()
         }
       }
+      val exitEditMode:MenuItem = new MenuItem("Exit Edit Mode")
+      exitEditMode.onAction=() =>{ createMainMenu()}
+      val filter:MenuItem=new MenuItem("Filter")
+      filter.onAction=()=>{
+        val dialog = new TextInputDialog(defaultValue = "1") {
+          initOwner(stage)
+          graphic=null
+          title = "Filter"
+          contentText = "Set Radius"
+        }
+        dialog.setHeaderText(null)
 
-      val exitEditMode:MenuItem = new MenuItem("Exit Edit Mode");
-      exitEditMode.onAction=(e: ActionEvent) =>{ createMainMenu()}
+        val result = dialog.showAndWait()
+
+        result match {
+          case Some(name) => 
+              name.toIntOption match {
+              case Some(int:Int) => filterRadius(int)
+            }
+          case None       => println("Dialog was canceled.")
+        }
+      }
 
       r.handleEvent(MousePressed){
         a:MouseEvent=>{
@@ -399,18 +427,19 @@ object Bloxorz extends JFXApp3 {
             r.setArcHeight(80)
             getScalaFill(r.getFill()) match {
               case Color.Black =>
+                contextMenu.getItems.add(filter)
                 if (isOnEdge(i,Color.Gray)) contextMenu.getItems.addAll(addBasic)
               case Color.Blue =>
-                System.out.println("START")
+                println("START")
               case Color.Gray =>
                 if (isOnEdge(i,Color.Black)) contextMenu.getItems.addAll(deleteBasic)
                 contextMenu.getItems.addAll(special, start, end)
-                System.out.println("OBICNA")
+                println("OBICNA")
               case Color.LightGray =>
-                contextMenu.getItems.addAll(basic)
-                System.out.println("SPECIJALNA")
+                contextMenu.getItems.addAll(basic,filter)
+                println("SPECIJALNA")
               case Color.Red =>
-                System.out.println("KRAJ")
+                println("KRAJ")
 
             }
           }
@@ -422,13 +451,12 @@ object Bloxorz extends JFXApp3 {
 
   def loadLevel(src:String, fromFile:Boolean): Unit ={
     val arena=getLinesFromFile(src)
-    val (blox, end, empty, spec)=getBlocks(arena)
-    initialBlox = blox
-    val state = ObjectProperty(State(stage, src, arena, blox, end, empty, spec))
+    val (initialBlox, end, empty, spec)=getBlocks(arena)
+    val state = ObjectProperty(State(stage, src, arena, initialBlox, end, empty, spec))
     stage.scene.value.content = state.value.rectangles
 
     def playFromFile(): Unit ={
-      val selectedFile = open()
+      val selectedFile = openFile()
       if (selectedFile != null) {
         val sequence = getLinesFromFile(selectedFile.getAbsolutePath)
         for (line: String <- sequence) {
@@ -498,17 +526,17 @@ object Bloxorz extends JFXApp3 {
   }
   def createMainMenu(): Unit ={
     val quit=createButton("QUIT")
-    quit.onAction = (e: ActionEvent) => stage.close()
+    quit.onAction = () => stage.close()
 
     val createLevel=createButton("CREATE LEVEL")
-    createLevel.onAction = (e: ActionEvent) => chooseLevel(false)
+    createLevel.onAction = () => chooseLevel(false)
 
     val start=createButton("START")
-    start.onAction = (e: ActionEvent) => chooseLevel(true)
+    start.onAction = () => chooseLevel(true)
 
     val loadFromFile=createButton("LOAD LEVEL FROM FILE")
-    loadFromFile.onAction= (e:ActionEvent) =>{
-      val selectedFile = open()
+    loadFromFile.onAction= () =>{
+      val selectedFile = openFile()
       if (selectedFile != null) {
       loadLevel(selectedFile.getAbsolutePath,fromFile = false)
       }
