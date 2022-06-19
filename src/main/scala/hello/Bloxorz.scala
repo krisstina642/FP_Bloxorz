@@ -9,10 +9,8 @@ import scalafx.scene.paint._
 import scalafx.Includes._
 import scalafx.beans.property.ObjectProperty
 import scalafx.geometry.{Insets, Pos}
-import scalafx.scene.AccessibleRole.MenuItem
 import scalafx.scene.effect.DropShadow
 import scalafx.scene.image.{Image, ImageView}
-import scalafx.scene.input.KeyCode.ContextMenu
 import scalafx.scene.input.MouseEvent
 import scalafx.scene.input.MouseEvent._
 import scalafx.scene.layout.{HBox, VBox}
@@ -31,19 +29,18 @@ import scala.io.Source
 object Bloxorz extends JFXApp3 {
 
   val step = 40
-  var initialBlox:List[(Double, Double)] = null;
+  var initialBlox:List[(Double, Double)] = null
   var sceneWidth = 600
   var sceneHeight = 600
 
   def getScalaFill(paint: Paint):Paint=paint
 
-  val specColor: Paint =getScalaFill(Color.LightGray);
-  val basicColor: Paint=getScalaFill(Color.Gray);
-  val emptyColor: Paint=getScalaFill(Color.Black);
-  val startColor: Paint=getScalaFill(Color.Blue);
-  val endColor: Paint=getScalaFill(Color.Red);
-
-
+  val specColor: Paint =getScalaFill(Color.LightGray)
+  val basicColor: Paint=getScalaFill(Color.Gray)
+  val emptyColor: Paint=getScalaFill(Color.Black)
+  val startColor: Paint=getScalaFill(Color.Blue)
+  val endColor: Paint=getScalaFill(Color.Red)
+  
   def createButton(text_ :String, function: Unit):Button ={
     new Button {
       text = text_
@@ -55,7 +52,7 @@ object Bloxorz extends JFXApp3 {
     }
   }
 
-  def createRect(xr:Double, yr:Double, color: Color) = new Rectangle{
+  def createRect(xr:Double, yr:Double, color: Paint): Rectangle = new Rectangle{
     x=xr
     y=yr
     width = step
@@ -74,12 +71,12 @@ object Bloxorz extends JFXApp3 {
     for ((line:String, i) <- src.zipWithIndex)
       for ((e,j) <- line.toUpperCase.zipWithIndex) {
         e.toUpper match {
-          case '–'  => rec += createRect( j*step, i*step , Color.Black)
-          case '-' => rec += createRect( j*step, i*step , Color.Black)
-          case 'O' => rec += createRect( j*step, i*step , Color.Gray)
-          case 'S' => rec += createRect(j*step, i*step , Color.Gray)
-          case 'T' => rec += createRect( j*step, i*step , Color.Red)
-          case '.' => rec += createRect( j*step, i*step , Color.LightGray)
+          case '–'  => rec += createRect( j*step, i*step , emptyColor)
+          case '-' => rec += createRect( j*step, i*step , emptyColor)
+          case 'O' => rec += createRect( j*step, i*step , basicColor)
+          case 'S' => rec += createRect(j*step, i*step , basicColor)
+          case 'T' => rec += createRect( j*step, i*step , endColor)
+          case '.' => rec += createRect( j*step, i*step , specColor)
         }
     }
     rec.toList
@@ -97,7 +94,7 @@ object Bloxorz extends JFXApp3 {
           case 'S' => initialBlox.append((j * step, i * step)).append((j * step, i * step))
           case 'T' => endPos = (j * step, i * step)
           case '.' => special.append((j * step, i * step))
-          case _ => {}
+          case _ =>
         }
       }
     }
@@ -112,8 +109,8 @@ object Bloxorz extends JFXApp3 {
       val sequence=createButton("PLAY FROM FILE")
       val main=createButton("MAIN MENU")
       solution.onAction = (e:ActionEvent) => {findSolution(src)}
-      sequence.onAction = (e:ActionEvent) => {loadLevel(src,true)}
-      again.onAction = (e:ActionEvent) => {loadLevel(src,false)}
+      sequence.onAction = (e:ActionEvent) => {loadLevel(src, fromFile = true)}
+      again.onAction = (e:ActionEvent) => {loadLevel(src,fromFile = false)}
       main.onAction = (e:ActionEvent) => {createMainMenu()}
       val cnt:VBox=createMenu(List(again,solution,sequence,main))
       cnt.getChildren.add(0,new Text {
@@ -164,12 +161,12 @@ object Bloxorz extends JFXApp3 {
       State(stage, src, content, newBlox, endPos, emptyBloxList, specialBloxList)
     }
     def rectangles: List[Rectangle]= {
-      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, Color.Blue) }
+      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, startColor) }
     }
   }
 
   def chooseLevel(play: Boolean)={  // true -play false - edit
-    val stop=4;
+    val stop=4
     val vBox=new VBox(20)
     var hBox=new HBox(20)
 
@@ -208,24 +205,24 @@ object Bloxorz extends JFXApp3 {
       }
     }
     chlvl(1)
-    if (hBox.getChildren().size>0) vBox.getChildren().add(hBox)
+    if (hBox.getChildren.size>0) vBox.getChildren.add(hBox)
     stage.scene.value.content = vBox
   }
 
-  def saveAs()={
+  def saveAs(): File ={
     val fileChooser: FileChooser = new FileChooser
     fileChooser.setTitle("Save As")
-    fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
+    fileChooser.getExtensionFilters.add(new ExtensionFilter("Text","*.txt"))
     fileChooser.showSaveDialog(stage)
   }
 
-  def open()={
+  def open(): File ={
     val fileChooser: FileChooser = new FileChooser
-    fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
+    fileChooser.getExtensionFilters.add(new ExtensionFilter("Text","*.txt"))
     fileChooser.showOpenDialog(stage)
   }
 
-  def findSolution(src:String)={
+  def findSolution(src:String): Unit ={
     val saveFile = saveAs()
     if (saveFile!=null) {
 
@@ -307,20 +304,20 @@ object Bloxorz extends JFXApp3 {
     val arena=getLinesFromFile("level"+level+".txt")
     val (blox, end, empty, spec)=getBlocks(arena)
     val rectangles:List[Rectangle]= getRectangles(arena)
-    rectangles.foreach(r=>if (r.x.value ==blox.head._1 && r.y.value ==blox.head._2) r.setFill(Color.Blue))
+    rectangles.foreach(r=>if (r.x.value ==blox.head._1 && r.y.value ==blox.head._2) r.setFill(startColor))
     stage.scene.value.content=rectangles
-    def col(rectangle: Rectangle, color: Color): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(color)) r.setFill(Color.Gray)})
+    def col(rectangle: Rectangle, color: Paint): Unit ={
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(color)) r.setFill(basicColor)})
       rectangle.setFill(color)
       }
-    def invertMap()={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(Color.Red)) r.setFill(Color.Blue)
-      else if(getScalaFill(r.getFill) == getScalaFill(Color.Blue)) r.setFill(Color.Red) })
+    def invertMap(): Unit ={
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(endColor)) r.setFill(startColor)
+      else if(getScalaFill(r.getFill) == getScalaFill(startColor)) r.setFill(endColor) })
     }
-    def replaceSpecial()={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(Color.LightGray)) r.setFill(Color.Gray)})
+    def replaceSpecial(): Unit ={
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(specColor)) r.setFill(basicColor)})
     }
-      def isOnEdge(num: Int, color: Color): Boolean = {
+      def isOnEdge(num: Int, color: Paint): Boolean = {
         if (num < 14 * 13 && getScalaFill(rectangles(num + 14).getFill) == getScalaFill(color)) {
           System.out.println("down")
           return true
@@ -349,17 +346,17 @@ object Bloxorz extends JFXApp3 {
       }
 
       val deleteBasic:MenuItem = new MenuItem("Delete")
-      deleteBasic.onAction=(e: ActionEvent) =>{r.setFill(Color.Black)}
+      deleteBasic.onAction=(e: ActionEvent) =>{r.setFill(emptyColor)}
       val addBasic:MenuItem = new MenuItem("Add")
-      addBasic.onAction=(e: ActionEvent) =>{r.setFill(Color.Gray)}
+      addBasic.onAction=(e: ActionEvent) =>{r.setFill(basicColor)}
       val special:MenuItem = new MenuItem("Set Special")
-      special.onAction=(e: ActionEvent) =>{r.setFill(Color.LightGray)}
+      special.onAction=(e: ActionEvent) =>{r.setFill(specColor)}
       val basic:MenuItem = new MenuItem("Set Basic")
-      basic.onAction=(e: ActionEvent) =>{r.setFill(Color.Gray)}
+      basic.onAction=(e: ActionEvent) =>{r.setFill(basicColor)}
       val start:MenuItem = new MenuItem("Set Start")
-      start.onAction=(e: ActionEvent) =>{col(r, Color.Blue);}
+      start.onAction=(e: ActionEvent) =>{col(r, startColor);}
       val end:MenuItem = new MenuItem("Set End")
-      end.onAction=(e: ActionEvent) =>{col(r, Color.Red);}
+      end.onAction=(e: ActionEvent) =>{col(r, endColor);}
       val invert:MenuItem = new MenuItem("Invert")
       invert.onAction=(e: ActionEvent) =>{invertMap()}
       val removeSpec:MenuItem = new MenuItem("Remove Special")
@@ -374,11 +371,11 @@ object Bloxorz extends JFXApp3 {
           def writeMap(current:Int): Unit ={
             if (current==14*14) writer.close()
             else{
-              if (getScalaFill(rectangles(current).getFill())==Color.LightGray) writer.write(".")
-              else if (getScalaFill(rectangles(current).getFill())==Color.Gray) writer.write("o")
-              else if (getScalaFill(rectangles(current).getFill())==Color.Red) writer.write("T")
-              else if (getScalaFill(rectangles(current).getFill())==Color.Blue) writer.write("S")
-              else if (getScalaFill(rectangles(current).getFill())==Color.Black) writer.write("-")
+              if (getScalaFill(rectangles(current).getFill())==specColor) writer.write(".")
+              else if (getScalaFill(rectangles(current).getFill())==basicColor) writer.write("o")
+              else if (getScalaFill(rectangles(current).getFill())==endColor) writer.write("T")
+              else if (getScalaFill(rectangles(current).getFill())==startColor) writer.write("S")
+              else if (getScalaFill(rectangles(current).getFill())==emptyColor) writer.write("-")
               if (current % 14 == 13 && current!=rectangles.length-1) writer.write("\n")
               writeMap(current+1)
             }
@@ -390,7 +387,7 @@ object Bloxorz extends JFXApp3 {
 
       r.handleEvent(MousePressed){
         a:MouseEvent=>{
-          val contextMenu: ContextMenu = new ContextMenu();
+          val contextMenu: ContextMenu = new ContextMenu()
           if (a.secondaryButtonDown){
             contextMenu.getItems.addAll(invert,removeSpec,saveMapAs)
           }
@@ -398,24 +395,19 @@ object Bloxorz extends JFXApp3 {
             r.setArcWidth(80)
             r.setArcHeight(80)
             getScalaFill(r.getFill()) match {
-              case Color.Black => {
-                if (isOnEdge(i,Color.Gray)) contextMenu.getItems.addAll(addBasic)
-              }
-              case Color.Blue => {
+              case emptyColor =>
+                if (isOnEdge(i,basicColor)) contextMenu.getItems.addAll(addBasic)
+              case startColor =>
                 System.out.println("START")
-              }
-              case Color.Gray => {
-                if (isOnEdge(i,Color.Black)) contextMenu.getItems.addAll(deleteBasic)
+              case basicColor =>
+                if (isOnEdge(i,emptyColor)) contextMenu.getItems.addAll(deleteBasic)
                 contextMenu.getItems.addAll(special, start, end)
                 System.out.println("OBICNA")
-              }
-              case Color.LightGray => {
+              case specColor =>
                 contextMenu.getItems.addAll(basic)
                 System.out.println("SPECIJALNA")
-              }
-              case Color.Red => {
+              case endColor =>
                 System.out.println("KRAJ")
-              }
 
             }
           }
@@ -501,7 +493,7 @@ object Bloxorz extends JFXApp3 {
       prefHeight = 30.0
     }
   }
-  def createMainMenu()={
+  def createMainMenu(): Unit ={
     val quit=createButton("QUIT")
     quit.onAction = (e: ActionEvent) => stage.close()
 
@@ -515,7 +507,7 @@ object Bloxorz extends JFXApp3 {
     loadFromFile.onAction= (e:ActionEvent) =>{
       val selectedFile = open()
       if (selectedFile != null) {
-      loadLevel(selectedFile.getAbsolutePath,false)
+      loadLevel(selectedFile.getAbsolutePath,fromFile = false)
       }
     }
 
