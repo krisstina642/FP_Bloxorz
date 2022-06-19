@@ -104,16 +104,16 @@ object Bloxorz extends JFXApp3 {
     (initialBlox.toList, endPos, empty.toList,special.toList)
   }
 
-  case class State(stage: Stage,level: Int, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
+  case class State(stage: Stage, src:String, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
 
     def createPauseMenu(win: Boolean): Unit ={
       val again=createButton("AGAIN?")
       val solution=createButton("SOLUTION")
       val sequence=createButton("PLAY FROM FILE")
       val main=createButton("MAIN MENU")
-      solution.onAction = (e:ActionEvent) => {findSolution(level)}
-      sequence.onAction = (e:ActionEvent) => {loadLevel(level,true)}
-      again.onAction = (e:ActionEvent) => {loadLevel(level,false)}
+      solution.onAction = (e:ActionEvent) => {findSolution(src)}
+      sequence.onAction = (e:ActionEvent) => {loadLevel(src,true)}
+      again.onAction = (e:ActionEvent) => {loadLevel(src,false)}
       main.onAction = (e:ActionEvent) => {createMainMenu()}
       val cnt:VBox=createMenu(List(again,solution,sequence,main))
       cnt.getChildren.add(0,new Text {
@@ -161,7 +161,7 @@ object Bloxorz extends JFXApp3 {
         else {
            List((newx1, newy1), (newx2, newy2))
         }
-      State(stage, level, content, newBlox, endPos, emptyBloxList, specialBloxList)
+      State(stage, src, content, newBlox, endPos, emptyBloxList, specialBloxList)
     }
     def rectangles: List[Rectangle]= {
       getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, Color.Blue) }
@@ -188,7 +188,7 @@ object Bloxorz extends JFXApp3 {
         }
       but.onAction = {
         (e: ActionEvent) => play match {
-          case true => loadLevel(int, false)
+          case true => loadLevel("level"+int+".txt", false)
           case _ => createLevel(int)
         }
       }
@@ -219,12 +219,18 @@ object Bloxorz extends JFXApp3 {
     fileChooser.showSaveDialog(stage)
   }
 
-  def findSolution(level:Int)={
+  def open()={
+    val fileChooser: FileChooser = new FileChooser
+    fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
+    fileChooser.showOpenDialog(stage)
+  }
+
+  def findSolution(src:String)={
     val saveFile = saveAs()
     if (saveFile!=null) {
 
       val writer = new PrintWriter(new File(saveFile.getAbsolutePath))
-      val arena = getLinesFromFile("level" + level + ".txt")
+      val arena = getLinesFromFile(src)
       val (blox, end, empty, spec) = getBlocks(arena) ////////////
 
       def nextPosition(state:(Double, Double, Double, Double)):List[(Double,Double,Double,Double)] ={
@@ -264,7 +270,7 @@ object Bloxorz extends JFXApp3 {
           writeToFile(current, state, accFrom)
         }
         else {
-          val nxt=nextPosition(state(current))
+          val nxt=nextPosition(state(current)).filterNot(p=>state.contains(p))
           solveLevel(current+1, state ::: nxt, accFrom ::: List.fill(nxt.length)(current), end)
         }
       }
@@ -417,20 +423,17 @@ object Bloxorz extends JFXApp3 {
         }
       }
     })
-
   }
 
-  def loadLevel(level: Int, fromFile:Boolean): Unit ={
-    val arena=getLinesFromFile("level"+level+".txt")
+  def loadLevel(src:String, fromFile:Boolean): Unit ={
+    val arena=getLinesFromFile(src)
     val (blox, end, empty, spec)=getBlocks(arena)
     initialBlox = blox
-    val state = ObjectProperty(State(stage, level, arena, blox, end, empty, spec))
+    val state = ObjectProperty(State(stage, src, arena, blox, end, empty, spec))
     stage.scene.value.content = state.value.rectangles
 
     def playFromFile(): Unit ={
-      val fileChooser: FileChooser = new FileChooser
-      fileChooser.getExtensionFilters().add(new ExtensionFilter("Text","*.txt"))
-      val selectedFile = fileChooser.showOpenDialog(stage)
+      val selectedFile = open()
       if (selectedFile != null) {
         val sequence = getLinesFromFile(selectedFile.getAbsolutePath)
         for (line: String <- sequence) {
@@ -474,7 +477,6 @@ object Bloxorz extends JFXApp3 {
     startLevel()
   }
 
-
   def createMenu(list: List[Button]): VBox={
     stage.title = "Bloxorz"
     val cnt=new VBox{
@@ -510,7 +512,12 @@ object Bloxorz extends JFXApp3 {
     start.onAction = (e: ActionEvent) => chooseLevel(true)
 
     val loadFromFile=createButton("LOAD LEVEL FROM FILE")
-    //loadFromFile.onAction= (e:ActionEvent) =>
+    loadFromFile.onAction= (e:ActionEvent) =>{
+      val selectedFile = open()
+      if (selectedFile != null) {
+      loadLevel(selectedFile.getAbsolutePath,false)
+      }
+    }
 
     val cnt:VBox=createMenu(List(start,loadFromFile, createLevel,quit))
     cnt.getChildren.add(0,new Text {
