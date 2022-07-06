@@ -1,5 +1,6 @@
 package hello
 
+import hello.Bloxorz.blockColors
 import javafx.scene.input.KeyCode
 import scalafx.application.JFXApp3
 import scalafx.scene.Scene
@@ -25,20 +26,17 @@ import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 
-object Bloxorz extends JFXApp3 {
+final case class DimensionsException(private val message: String = "Matrix should be 14x14") extends Exception(message)
+final case class StartAndEndException(private val message: String = "Can be only one start and one end blox") extends Exception(message)
+final case class UnsupportedCharacter(private val message: String = "Unsupported character") extends Exception(message)
+final case class StartBloxException(private val message: String = "No start blox") extends Exception(message)
 
+object Bloxorz extends JFXApp3 {
   val step = 40
   val sceneWidth = 575
   val sceneHeight = 595
-
   def getScalaFill(paint: Paint):Paint=paint
-
-  val specColor: Paint =specColor
-  val basicColor: Paint=getScalaFill(Color.Gray)
-  val emptyColor: Paint=getScalaFill(Color.Black)
-  val startColor: Paint=getScalaFill(Color.Blue)
-  val endColor: Paint=getScalaFill(Color.Red)
-
+  val blockColors: Map[String, Paint]= Map(("spec",Color.LightGray),("basic",Color.Gray),("empty",Color.Black),("start",Color.Blue),("end",Color.Red))
 
   def createButton(text_ :String, function: Unit):Button ={
     new Button {
@@ -51,7 +49,14 @@ object Bloxorz extends JFXApp3 {
     }
   }
 
-  def createRect(xr:Double, yr:Double, color: Color): Rectangle = new Rectangle{
+  def getLinesFromFile(src:String): List[String] = { //
+      val bufferedSource = Source.fromFile(src)
+      val str:List[String] = bufferedSource.getLines.toList
+      bufferedSource.close
+      str
+  }
+
+  def createRect(xr:Double, yr:Double, color: Paint): Rectangle = new Rectangle{
     x=xr
     y=yr
     width = step
@@ -59,29 +64,40 @@ object Bloxorz extends JFXApp3 {
     fill = color
   }
 
-  def getLinesFromFile(src:String):List[String] = {
-      val bufferedSource = Source.fromFile(src)
-      val str:List[String] = bufferedSource.getLines.toList
-      bufferedSource.close
-      str
-  }
   def getRectangles(src: List[String]):List[Rectangle]={ // all rectangles, empty space, special blocks, end_point
-    val rec = new ListBuffer[Rectangle]()
-    for ((line:String, i) <- src.zipWithIndex)
-      for ((e,j) <- line.toUpperCase.zipWithIndex) {
-        e.toUpper match {
-          case '–'  => rec += createRect( j*step, i*step , Color.Black )
-          case '-' => rec += createRect( j*step, i*step , Color.Black )
-          case 'O' => rec += createRect( j*step, i*step , Color.Gray )
-          case 'S' => rec += createRect( j*step, i*step , Color.Gray )
-          case 'T' => rec += createRect( j*step, i*step , Color.Red )
-          case '.' => rec += createRect( j*step, i*step , Color.LightGray )
-        }
+     if (src.length!=14) throw DimensionsException()
+    for (line:String <- src if line.length!=14) throw DimensionsException()
+
+    @tailrec
+    def getRectangles2(i:Int, j:Int, acc:List[Rectangle]):List[Rectangle] ={
+      (i,j) match {
+        case (13,13) => matchRectangle(src(j).charAt(i), i ,j)::acc
+        case (e, 13) => getRectangles2(e+1,0,matchRectangle(src(j).charAt(i), e ,j)::acc)
+        case (e, r)=> getRectangles2(e,r+1,matchRectangle(src(j).charAt(i), e ,j)::acc)
+      }
     }
-    rec.toList
+    def matchRectangle(e:Char, j:Int, i:Int):Rectangle = e.toUpper match {
+      case '–' =>  createRect(j * step, i * step, blockColors("empty"))
+      case '-' =>  createRect(j * step, i * step, blockColors("empty"))
+      case 'O' =>  createRect(j * step, i * step, blockColors("basic"))
+      case 'S' =>  createRect(j * step, i * step, blockColors("basic"))
+      case 'T' =>  createRect(j * step, i * step, blockColors("end"))
+      case '.' =>  createRect(j * step, i * step, blockColors("spec"))
+      case _ => throw UnsupportedCharacter()
+    }
+    getRectangles2(0,0,List[Rectangle]())
   }
+
+  def getInitialBlox(src:List[String]):List[(Double,Double)] = {
+    for ((line: String, i) <- src.zipWithIndex; (e, j) <- line.toUpperCase.zipWithIndex) {
+      if (e.toUpper == 'S') return ((j * step * 1.0, i * step * 1.0) :: ((j * step * 1.0, i * step * 1.0) :: List[(Double, Double)]()))
+    }
+    List[(Double, Double)]()
+    throw StartBloxException()
+  }
+
   def getBlocks(src: List[String]):(List[(Double,Double)],(Double,Double),List[(Double,Double)], List[(Double,Double)])={ // init, end, empty space, special blocks, end_point
-    val empty = ListBuffer[(Double,Double)]()
+   /* val empty = ListBuffer[(Double,Double)]()
     val special = ListBuffer[(Double,Double)]()
     val initialBlox = ListBuffer[(Double,Double)]()
     var endPos:(Double, Double)=(80,80)
@@ -96,11 +112,20 @@ object Bloxorz extends JFXApp3 {
           case _ =>
         }
       }
-    }
-    (initialBlox.toList, endPos, empty.toList,special.toList)
+    } */
+
+    val initialBlox2=getInitialBlox(src);
+    val (empty1:List[Rectangle], s)=getRectangles(src).partition(p=>getScalaFill(p.getFill)==blockColors("empty"))
+    val (special1, s2) = s.partition(p=>getScalaFill(p.getFill)==blockColors("spec"))
+    val empty2:List[(Double,Double)]=empty1.map(r=>(r.x.value,r.y.value))
+    val spec2:List[(Double,Double)]=special1.map(r=>(r.x.value,r.y.value))
+    val endPos2:(Double,Double)=(s2.filter(p=>getScalaFill(p.getFill)==blockColors("end")).map(r=>(r.x.value,r.y.value)))(0)
+    //(initialBlox.toList, endPos, empty.toList,special.toList)
+    (initialBlox2, endPos2, empty2, spec2)
+
   }
 
-  case class State(stage: Stage, src:String, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
+  case class State(src:String, content:List[String], blox:List[(Double, Double)], endPos:(Double,Double), emptyBloxList:List[(Double, Double)], specialBloxList:List[(Double, Double)]){
 
     def createPauseMenu(win: Boolean): Unit ={
 
@@ -162,10 +187,10 @@ object Bloxorz extends JFXApp3 {
         else {
            List((newx1, newy1), (newx2, newy2))
         }
-      State(stage, src, content, newBlox, endPos, emptyBloxList, specialBloxList)
+      State( src, content, newBlox, endPos, emptyBloxList, specialBloxList)
     }
     def rectangles: List[Rectangle]= {
-      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, Color.Blue) }
+      getRectangles(content) ::: blox.map { case (x, y) => createRect(x, y, blockColors("start")) }
     }
   }
 
@@ -208,7 +233,6 @@ object Bloxorz extends JFXApp3 {
         chooseLvl(int+1)
       }
     }
-
     chooseLvl(1)
     if (hBox.getChildren.size>0) vBox.getChildren.add(hBox)
     stage.scene.value.content = vBox
@@ -236,11 +260,11 @@ object Bloxorz extends JFXApp3 {
       val (blox, end, empty, spec) = getBlocks(arena) ////////////
 
       def nextPosition(state:(Double, Double, Double, Double)):List[(Double,Double,Double,Double)] ={
-
         val acc:ListBuffer[(Double,Double,Double, Double)]= ListBuffer[(Double,Double,Double, Double)]()
         for(dir<-1 to 4) {
           val (newx1, newy1, newx2, newy2) = calculatePosition(state._1, state._2,state._3, state._4, dir)
-          if (newx1>=0 && newx2>=0 && newy1>=0 && newy2>=0 && !(empty.contains((newx1,newy1)) || empty.contains((newx2,newy2))) &&
+          if (newx1 >= 0 && newx1 < 560 && newy1 >= 0 && newy1 < 560 &&
+            newx2 >=0 && newy2 >= 0 && newy2 < 560 && !(empty.contains((newx1,newy1)) || empty.contains((newx2,newy2))) &&
             !(spec.contains((newx1,newy1)) && (newx1,newy1)==(newx2,newy2))){
             acc += ((newx1, newy1, newx2, newy2))
           }
@@ -308,22 +332,23 @@ object Bloxorz extends JFXApp3 {
 
   def createLevel(level: Int): Unit = {
     val arena=getLinesFromFile("level"+level+".txt")
-    val (blox, end, empty, spec) = getBlocks(arena)
+    val blox = getInitialBlox(arena)
     val rectangles:List[Rectangle]= getRectangles(arena)
-    rectangles.foreach(r=>if (r.x.value == blox.head._1 && r.y.value == blox.head._2) r.setFill(Color.Blue))
+    rectangles.foreach(r=>if (r.x.value == blox.head._1 && r.y.value == blox.head._2) r.setFill(blockColors("start")))
     stage.scene.value.content=rectangles
-    def col(rectangle: Rectangle, color: Color): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(color)) r.setFill(Color.Gray)})
+
+    def col(rectangle: Rectangle, color: Paint): Unit ={
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == color) r.setFill(blockColors("basic"))})
       rectangle.setFill(color)
       }
     def invertMap(): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == getScalaFill(Color.Red)) r.setFill(Color.Blue)
-      else if(getScalaFill(r.getFill) == getScalaFill(Color.Blue)) r.setFill(Color.Red) })
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == blockColors("end")) r.setFill(blockColors("start"))
+      else if(getScalaFill(r.getFill) == blockColors("start")) r.setFill(blockColors("end")) })
     }
     def replaceSpecial(): Unit ={
-      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == Color.LightGray) r.setFill(Color.Gray)})
+      rectangles.foreach(r=>{if(getScalaFill(r.getFill) == blockColors("spec")) r.setFill(blockColors("basic"))})
     }
-      def isOnEdge(num: Int, color: List[Color]): Boolean = {
+      def isOnEdge(num: Int, color: List[Paint]): Boolean = {
         if (num < 14 * 13 && color.contains(getScalaFill(rectangles(num + 14).getFill))) return true
         if (num % 14 < 13 && color.contains(getScalaFill(rectangles(num + 1).getFill))) return true
         if (num % 14 > 0 && color.contains(getScalaFill(rectangles(num - 1).getFill))) return true
@@ -338,18 +363,12 @@ object Bloxorz extends JFXApp3 {
       val ymin = if (y-radius<0) 0 else y-radius
       val xmax = if (x+radius>13) 13 else x+radius
       val ymax = if (y+radius>13) 13 else y+radius
-      @tailrec
-      def filter(i:Int): Unit ={
-        if (i>=rectangles.length) return
-        else if (i/14<=xmax && i/14>=xmin && i%14<=ymax && i%14>=ymin && i!=num &&
-          getScalaFill(rectangles(i).getFill)==getScalaFill(Color.LightGray)) rectangles(num).fill=Color.Gray
-        else filter(i+1)
+      for (i<-xmin to xmax; j<-ymin to ymax if (getScalaFill(rectangles(i*14+j).getFill)==blockColors("spec"))) {
+        rectangles(i*14+j).fill=blockColors("basic")
       }
-      filter(0)
     }
 
     rectangles.indices.foreach( i => {
-     //r.onMouseDragOver = (e: MouseEvent) => println("drag")
       val r= rectangles(i)
       r.handleEvent(MouseEntered){
         a:MouseEvent=>{
@@ -365,17 +384,17 @@ object Bloxorz extends JFXApp3 {
       }
 
       val deleteBasic:MenuItem = new MenuItem("Delete")
-      deleteBasic.onAction=() =>{r.setFill(Color.Black)} //(e: ActionEvent) =>{r.setFill(Color.Black)}
+      deleteBasic.onAction=() =>{r.setFill(blockColors("empty"))} //(e: ActionEvent) =>{r.setFill(Color.Black)}
       val addBasic:MenuItem = new MenuItem("Add")
-      addBasic.onAction=() =>{r.setFill(Color.Gray)}
+      addBasic.onAction=() =>{r.setFill(blockColors("basic"))}
       val special:MenuItem = new MenuItem("Set Special")
-      special.onAction=() =>{r.setFill(Color.LightGray)}
+      special.onAction=() =>{r.setFill(blockColors("spec"))}
       val basic:MenuItem = new MenuItem("Set Basic")
-      basic.onAction=() =>{r.setFill(Color.Gray)}
+      basic.onAction=() =>{r.setFill(blockColors("basic"))}
       val start:MenuItem = new MenuItem("Set Start")
-      start.onAction=() =>{col(r, Color.Blue);}
+      start.onAction=() =>{col(r, blockColors("start"));}
       val end:MenuItem = new MenuItem("Set End")
-      end.onAction=() =>{col(r, Color.Red);}
+      end.onAction=() =>{col(r, blockColors("end"));}
       val invert:MenuItem = new MenuItem("Invert")
       invert.onAction=() =>{invertMap()}
       val removeSpec:MenuItem = new MenuItem("Remove Special")
@@ -385,20 +404,25 @@ object Bloxorz extends JFXApp3 {
         val saveFile = saveFileAs()
         if (saveFile!=null) {
           val writer = new PrintWriter(new File(saveFile.getAbsolutePath))
+          val rectangles2=rectangles.reverse
+          println(rectangles2)
           @tailrec
-          def writeMap(current:Int): Unit ={
-            if (current==14*14) writer.close()
-            else{
-              if (getScalaFill(rectangles(current).getFill())==Color.LightGray) writer.write(".")
-              else if (getScalaFill(rectangles(current).getFill())==Color.Gray) writer.write("o")
-              else if (getScalaFill(rectangles(current).getFill())==Color.Red) writer.write("T")
-              else if (getScalaFill(rectangles(current).getFill())==Color.Blue) writer.write("S")
-              else if (getScalaFill(rectangles(current).getFill())==Color.Black) writer.write("-")
-              if (current % 14 == 13 && current!=rectangles.length-1) writer.write("\n")
-              writeMap(current+1)
+          def writeMap(i: Int, j:Int): Unit ={
+            (i,j) match {
+              case (14,13) => writer.close()
+              case (14,_) => writer.write("\n")
+                writeMap(0,j+1)
+              case(e,f) =>
+                val m=getScalaFill(rectangles2(i*14+j).getFill())
+                if (m==blockColors("spec")) writer.write(".")
+                else if (m==blockColors("basic")) writer.write("o")
+                else if (m==blockColors("end")) writer.write("T")
+                else if (m==blockColors("start")) writer.write("S")
+                else if (m==blockColors("empty")) writer.write("-")
+                writeMap(i+1,j)
             }
           }
-          writeMap(0)
+          writeMap(0,0)
           createMainMenu()
         }
       }
@@ -437,9 +461,8 @@ object Bloxorz extends JFXApp3 {
             r.setArcWidth(80)
             r.setArcHeight(80)
             getScalaFill(r.getFill()) match {
-              case Color.Black =>
-                contextMenu.getItems.add(filter)
-                if (isOnEdge(i,List(Color.Gray,Color.LightGray,Color.Red,Color.Blue))) contextMenu.getItems.addAll(addBasic)
+              case Color.Black => contextMenu.getItems.add(filter)
+                if (isOnEdge(i,List(blockColors("basic"),blockColors("spec"),blockColors("end"),blockColors("start")))) contextMenu.getItems.addAll(addBasic)
               case Color.Blue =>
                 println("START")
               case Color.Gray =>
@@ -448,7 +471,6 @@ object Bloxorz extends JFXApp3 {
               case Color.LightGray =>
                 contextMenu.getItems.addAll(basic,filter)
               case Color.Red =>
-
             }
           }
             contextMenu.show(stage, a.screenX, a.screenY)
@@ -460,7 +482,7 @@ object Bloxorz extends JFXApp3 {
   def loadLevel(src:String, fromFile:Boolean): Unit ={
     val arena=getLinesFromFile(src)
     val (initialBlox, end, empty, spec)=getBlocks(arena)
-    val state = ObjectProperty(State(stage, src, arena, initialBlox, end, empty, spec))
+    val state = ObjectProperty(State( src, arena, initialBlox, end, empty, spec))
     stage.scene.value.content = state.value.rectangles
 
     def playFromFile(): Unit ={
@@ -503,7 +525,6 @@ object Bloxorz extends JFXApp3 {
         }
       }
     }
-
     if (fromFile) playFromFile()
     startLevel()
   }
